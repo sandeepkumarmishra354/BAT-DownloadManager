@@ -29,6 +29,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     VLAYOUT->addWidget(&scrollArea);
     scrollArea.setWidgetResizable(true);
     MAIN_WIDGET.setLayout(VLAYOUT);
+    MAIN_WIDGET.setStyleSheet("background-color: #212121");
 
     appIcon.load(":/icons/dmIcon/app-icon.png");
     appIconLabel.setPixmap(appIcon);
@@ -36,10 +37,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     appIconLayout.addWidget(&appIconLabel);
     appIconLayout.addWidget(&appNameLabel);
     appIconLayout.setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-    //appIconLayout.setSizeConstraint(QLayout::SetFixedSize);
     appIconWidget = new QWidget;
-    //appIconWidget->setMaximumHeight(100);
-    //appIconWidget->setMaximumWidth(100);
     appIconWidget->setLayout(&appIconLayout);
 
     if(noTasks)
@@ -47,12 +45,28 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     else
         setCentralWidget(&MAIN_WIDGET);
 
+    createContextMenu();
+
     clipboard = QApplication::clipboard();
     oldClipboardText = clipboard->text();
 
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(checkClipboard()));
     timer->start(500);
+}
+
+void SDM::createContextMenu()
+{
+    contextMenu = new QMenu(this);
+    startAction = new QAction(tr("Start"),contextMenu);
+    pauseAction = new QAction(tr("Pause"),contextMenu);
+    cancelAction = new QAction(tr("Cancel"),contextMenu);
+    clearAction = new QAction(tr("Remove"), contextMenu);
+
+    contextMenu->addAction(startAction);
+    contextMenu->addAction(pauseAction);
+    contextMenu->addAction(cancelAction);
+    contextMenu->addAction(clearAction);
 }
 
 void SDM::resizeEvent(QResizeEvent *e)
@@ -103,21 +117,29 @@ void SDM::addNewTask()
         QProgressBar *dwnldprogress = new QProgressBar;
         QVBoxLayout *dwnldvLayout = new QVBoxLayout;
         QWidget *dwnldWidget = new QWidget;
-        QLabel *dwnldspeedLabel = new QLabel(tr("0/0    00 kb/s"));
+        QLabel *dwnldSizeLabel = new QLabel(tr("0/0    00 kb/s"));
+        dwnldSizeLabel->setStyleSheet("color: pink");
+        QLabel *dwnldspeedLabel = new QLabel(tr("0 kb/ps"));
+        dwnldspeedLabel->setStyleSheet("color: cyan");
         SDM_network *sdmnetwork = new SDM_network;
-        sdmList.append(sdmnetwork);
-        connect(sdmnetwork, SIGNAL(updateprogress(QString)), dwnldspeedLabel, SLOT(setText(QString)));
+
+        connect(sdmnetwork, SIGNAL(updateprogress(QString)), dwnldSizeLabel, SLOT(setText(QString)));
+        connect(sdmnetwork, SIGNAL(updateSpeed(QString)), dwnldspeedLabel, SLOT(setText(QString)));
         connect(sdmnetwork, SIGNAL(updateprogressBarValue(int)), dwnldprogress, SLOT(setValue(int)));
         connect(sdmnetwork, SIGNAL(updateprogressBarMax(int)), dwnldprogress, SLOT(setMaximum(int)));
+        connect(sdmnetwork, SIGNAL(updateDownloadStyle(QString)), dwnldLabel, SLOT(setStyleSheet(QString)));
 
+        sdmList.append(sdmnetwork);
         labelList.append(dwnldLabel);
         progressbarList.append(dwnldprogress);
         vboxList.append(dwnldvLayout);
         widgetList.append(dwnldWidget);
+        sizelabelList.append(dwnldSizeLabel);
         speedlabelList.append(dwnldspeedLabel);
 
         dwnldvLayout->addWidget(dwnldLabel);
         dwnldvLayout->addWidget(dwnldprogress);
+        dwnldvLayout->addWidget(dwnldSizeLabel);
         dwnldvLayout->addWidget(dwnldspeedLabel);
 
         dwnldWidget->setLayout(dwnldvLayout);
@@ -128,7 +150,23 @@ void SDM::addNewTask()
         fileName = sdmnetwork->getFileName(QUrl(urlText));
         fileName = fileName.mid(fileName.lastIndexOf("/")+1);
         dwnldLabel->setText(fileName);
+
+        dwnldWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(dwnldWidget, SIGNAL(customContextMenuRequested(QPoint)),
+                this, SLOT(showContextMenu(QPoint)));
     }
+}
+
+void SDM::showContextMenu(QPoint pos)
+{
+    qDebug()<<"context menu";
+    contextMenu->popup(scrollArea.viewport()->mapToGlobal(pos));
+}
+
+void SDM::initContext(SDM_network *sdmnetwork)
+{
+    qDebug()<<"init context";
+    qDebug()<<sdmnetwork->getFile();
 }
 
 void SDM::checkClipboard()
@@ -136,13 +174,18 @@ void SDM::checkClipboard()
     dwnldurl = clipboard->text();
     if(!dwnldurl.isEmpty() && oldClipboardText != dwnldurl)
     {
-        if(isHidden())
-            show();
-        else
-            raise();
+        if(dwnldurl.contains("www",Qt::CaseInsensitive)||dwnldurl.contains("http",Qt::CaseInsensitive)||
+           dwnldurl.contains(".com",Qt::CaseInsensitive)||dwnldurl.contains(".in",Qt::CaseInsensitive)||
+           dwnldurl.contains(".us",Qt::CaseInsensitive)||dwnldurl.contains(".uk",Qt::CaseInsensitive))
+        {
+            if(isHidden())
+                show();
+            else
+                raise();
 
-        addNewTask();
-        oldClipboardText = dwnldurl;
+            addNewTask();
+            oldClipboardText = dwnldurl;
+        }
     }
 }
 
@@ -159,8 +202,12 @@ void SDM::freeMem()
     delete mainVlayout;
     delete VLAYOUT;
     delete timer;
-    //delete appIconWidget;
+    delete contextMenu;
 
+    for(auto itm : sizelabelList)
+        delete itm;
+    for(auto itm : speedlabelList)
+        delete itm;
     for(auto itm : labelList)
         delete itm;
     for(auto itm : progressbarList)
@@ -168,8 +215,6 @@ void SDM::freeMem()
     for(auto itm : vboxList)
         delete itm;
     for(auto itm : widgetList)
-        delete itm;
-    for(auto itm : speedlabelList)
         delete itm;
     for(auto itm : sdmList)
         delete itm;

@@ -8,15 +8,19 @@
 #include <QString>
 #include <QIODevice>
 #include <QFile>
+#include <QTimer>
 #include <QUrl>
+#include <QSound>
 
 class SDM_network : public QObject
 {
     Q_OBJECT
+
 public:
     explicit SDM_network(QObject *parent = nullptr);
     bool startNewDownload(const QUrl &url);
     QString getFileName(const QUrl &url);
+    QString getFile() const { return downloadingFileName; }
 
 private:
     QNetworkAccessManager manager;
@@ -25,14 +29,23 @@ private:
     bool isHttpRedirected(QNetworkReply *reply = nullptr);
     bool saveToDisk(const QString &fileName, QIODevice *data);
 
+    QTimer timer;
+    //QSound SoundEffect;
+    bool checkSpeed = false;
+
 signals:
     void downloadStarted(QString fileName);
     void updateprogress(QString txt);
+    void updateSpeed(QString txt);
     void updateprogressBarValue(int);
     void updateprogressBarMax(int);
+    void updateDownloadStyle(QString);
+
 private slots:
+
     void downloadFinished(QNetworkReply *ntReply = nullptr);
     void progress(qint64 rcv_bytes, qint64 total_bytes);
+    void setCheckSpeed();
 };
 
 #endif // SDM_NETWORK_H

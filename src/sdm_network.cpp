@@ -6,6 +6,12 @@
 SDM_network::SDM_network(QObject *parent) : QObject(parent)
 {
     connect(&manager, SIGNAL(finished(QNetworkReply*)), this, SLOT(downloadFinished(QNetworkReply*)));
+    connect(&timer, SIGNAL(timeout()), this, SLOT(setCheckSpeed()));
+}
+
+void SDM_network::setCheckSpeed()
+{
+    checkSpeed = true;
 }
 
 bool SDM_network::startNewDownload(const QUrl &url)
@@ -17,6 +23,7 @@ bool SDM_network::startNewDownload(const QUrl &url)
     QString fileName = getFileName(url);
     downloadingFileName = fileName;
     emit downloadStarted(fileName);
+    timer.start(300);
     return true;
 }
 
@@ -47,6 +54,7 @@ bool SDM_network::isHttpRedirected(QNetworkReply *reply)
         return statusCode == 301 || statusCode == 302 || statusCode == 303
                    || statusCode == 305 || statusCode == 307 || statusCode == 308;
     }
+
     return false;
 }
 
@@ -73,16 +81,38 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
         rcvString = QString::number(rcv_bytes)+" bytes";
     if(rcv_bytes > 1024) // kb
     {
-        qreal rcvint = rcv_bytes/1024;
-        if(rcvint < 1024)
-            rcvString = QString::number(rcvint)+" KB";
+        qreal rcvreal = rcv_bytes/1024;
+        if(rcvreal < 1024)
+        {
+            rcvString = QString::number(rcvreal);
+            if(rcvString.contains("."))
+            {
+                rcvString = rcvString.mid(0,rcvString.indexOf(".")+2);
+            }
+            rcvString.append(" KB");
+        }
         else // mb
         {
-            rcvint = rcvint/1024;
-            if(rcvint < 1024) // gb
-                rcvString = QString::number(rcvint)+" MB";
+            rcvreal = rcvreal/1024;
+            if(rcvreal < 1024) // gb
+            {
+                rcvString = QString::number(rcvreal);
+                if(rcvString.contains("."))
+                {
+                    rcvString = rcvString.mid(0,rcvString.indexOf(".")+2);
+                }
+                rcvString.append(" MB");
+            }
             else
-                rcvString = QString::number(rcvint/1024)+" GB";
+            {
+                rcvreal = rcvreal/1024;
+                rcvString = QString::number(rcvreal);
+                if(rcvString.contains("."))
+                {
+                    rcvString = rcvString.mid(0,rcvString.indexOf(".")+2);
+                }
+                rcvString.append(" GB");
+            }
         }
     }
     if(total_bytes == -1)
@@ -93,27 +123,47 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
             totalString = QString::number(total_bytes)+" bytes";
         if(total_bytes > 1024) // kb
         {
-            qreal tint = total_bytes/1024;
-            if(tint < 1024)
-                totalString = QString::number(tint)+" KB";
+            qreal treal = total_bytes/1024;
+            if(treal < 1024)
+            {
+                totalString = QString::number(treal);
+                if(totalString.contains("."))
+                {
+                    totalString = totalString.mid(0,totalString.indexOf(".")+2);
+                }
+                totalString.append(" KB");
+            }
             else // mb
             {
-                tint = tint/1024;
-                if(tint < 1024)
-                    totalString = QString::number(tint)+" MB";
+                treal = treal/1024;
+                if(treal < 1024)
+                {
+                    totalString = QString::number(treal);
+                    if(totalString.contains("."))
+                    {
+                        totalString = totalString.mid(0,totalString.indexOf(".")+2);
+                    }
+                    totalString.append(" MB");
+                }
                 else
-                    totalString = QString::number(tint/1024)+" GB";
+                    totalString = QString::number(treal/1024)+" GB";
             }
         }
     }
 
-    QString status;
-    status.sprintf("       %lld kb/s",((rcv_bytes-prev_bytes)/8)/8);
-    status.prepend(rcvString+"/"+totalString);
+    QString status = rcvString+"/"+totalString;
     emit updateprogress(status);
     emit updateprogressBarValue(rcv_bytes/1024);
     emit updateprogressBarMax(total_bytes/1024);
-    prev_bytes = rcv_bytes;
+
+    if(checkSpeed)
+    {
+        QString speed;
+        speed.sprintf("%lld kb/s",(rcv_bytes-prev_bytes)/300);
+        emit updateSpeed(speed);
+        checkSpeed = false;
+        prev_bytes = rcv_bytes;
+    }
 }
 
 void SDM_network::downloadFinished(QNetworkReply *ntReply)
@@ -121,26 +171,35 @@ void SDM_network::downloadFinished(QNetworkReply *ntReply)
     QUrl url = ntReply->url();
     if(ntReply->error())
     {
-        char cmd[] = "notify-send 'BAT-DM' 'download fail' '-t' 5000";
+        char cmd[] = "notify-send 'BAT-DownloadManager' 'download fail' '-t' 5000";
         qDebug()<<"Network error";
+        emit updateDownloadStyle("color: red");
+        emit updateSpeed("Failed");
         system(cmd);
+        QSound::play(":/icons/soundEffect/fail.wav");
     }
     else
     {
         if(isHttpRedirected(ntReply))
         {
-            char cmd[] = "notify-send 'BAT-DM' 'request redirected' '-t' 5000";
+            char cmd[] = "notify-send 'BAT-DownloadManager' 'request redirected' '-t' 5000";
             qDebug()<<"Request was redirected";
+            emit updateDownloadStyle("color: red");
+            emit updateSpeed("Failed");
             system(cmd);
+            QSound::play(":/icons/soundEffect/fail.wav");
         }
         else
         {
             QString fileName = getFileName(url);
             if(saveToDisk(fileName, ntReply))
             {
-                char cmd[] = "notify-send 'BAT-DM' 'download completed' '-t' 5000";
+                char cmd[] = "notify-send 'BAT-DownloadManager' 'download completed' '-t' 5000";
                 qDebug()<<"Download completed";
                 system(cmd);
+                emit updateDownloadStyle("color: pink");
+                emit updateSpeed("Completed");
+                QSound::play(":/icons/soundEffect/success.wav");
             }
         }
     }

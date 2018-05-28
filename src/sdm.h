@@ -21,6 +21,7 @@
 #include <QClipboard>
 #include <QTimer>
 #include <QPixmap>
+#include <QPoint>
 #include "sdm_network.h"
 
 class SDM : public QMainWindow
@@ -30,8 +31,6 @@ class SDM : public QMainWindow
 public:
     SDM(QWidget *parent=0);
     ~SDM();
-    void resizeEvent(QResizeEvent *e = nullptr);
-    void closeEvent(QCloseEvent *e);
 
 private:
     QWidget mainWidget, MAIN_WIDGET;
@@ -45,6 +44,10 @@ private:
     QVBoxLayout appIconLayout;
     QWidget *appIconWidget;
 
+    QMenu *contextMenu;
+    QAction *pauseAction, *startAction;
+    QAction *cancelAction, *clearAction;
+
     QToolBar *tool_bar;
     QAction *addTask, *quitDM;
     QVBoxLayout *mainVlayout, *VLAYOUT;
@@ -52,11 +55,16 @@ private:
     QList <QProgressBar*> progressbarList;
     QList <QWidget*> widgetList;
     QList <QVBoxLayout*> vboxList;
+    QList <QLabel*> sizelabelList;
     QList <QLabel*> speedlabelList;
     QList <SDM_network*> sdmList;
 
     bool noTasks = true;
     bool isForceQuit = false;
+
+    void resizeEvent(QResizeEvent *e = nullptr);
+    void closeEvent(QCloseEvent *e);
+    void createContextMenu();
 
 private slots:
     void addNewTask();
@@ -64,6 +72,8 @@ private slots:
     void checkClipboard();
     void forceQuit();
     void freeMem();
+    void initContext(SDM_network*);
+    void showContextMenu(QPoint);
 };
 
 #endif // SDM_H
