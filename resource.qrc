@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>dmIcon/new-task.png</file>
+        <file>soundEffect/fail.wav</file>
+        <file>soundEffect/success.mp3</file>
+        <file>dmIcon/app-icon.png</file>
+        <file>dmIcon/quit.png</file>
+    </qresource>
+</RCC>
