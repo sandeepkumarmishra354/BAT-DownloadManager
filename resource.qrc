@@ -5,5 +5,7 @@
         <file>dmIcon/app-icon.png</file>
         <file>dmIcon/quit.png</file>
         <file>soundEffect/success.wav</file>
+        <file>dmIcon/help.png</file>
+        <file>dmIcon/setting.png</file>
     </qresource>
 </RCC>
