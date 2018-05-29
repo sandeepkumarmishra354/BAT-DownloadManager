@@ -43,14 +43,12 @@ private:
     QPixmap appIcon;
     QVBoxLayout appIconLayout;
     QWidget *appIconWidget;
-
-    QMenu *contextMenu;
-    QAction *pauseAction, *startAction;
-    QAction *cancelAction, *clearAction;
-
     QToolBar *tool_bar;
     QAction *addTask, *quitDM;
+    QAction *helpAction, *settingAction;
+    QWidget *spacerWidget;
     QVBoxLayout *mainVlayout, *VLAYOUT;
+
     QList <QLabel*> labelList;
     QList <QProgressBar*> progressbarList;
     QList <QWidget*> widgetList;
@@ -58,13 +56,13 @@ private:
     QList <QLabel*> sizelabelList;
     QList <QLabel*> speedlabelList;
     QList <SDM_network*> sdmList;
+    QList <QAction*> actionList;
 
     bool noTasks = true;
     bool isForceQuit = false;
 
     void resizeEvent(QResizeEvent *e = nullptr);
     void closeEvent(QCloseEvent *e);
-    void createContextMenu();
 
 private slots:
     void addNewTask();
@@ -72,8 +70,10 @@ private slots:
     void checkClipboard();
     void forceQuit();
     void freeMem();
-    void initContext(SDM_network*);
-    void showContextMenu(QPoint);
+    void pause();
+    void start();
+    void cancel();
+    void clear();
 };
 
 #endif // SDM_H

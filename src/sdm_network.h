@@ -11,6 +11,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QSound>
+#include <QStandardPaths>
 
 class SDM_network : public QObject
 {
@@ -18,20 +19,31 @@ class SDM_network : public QObject
 
 public:
     explicit SDM_network(QObject *parent = nullptr);
+    ~SDM_network();
     bool startNewDownload(const QUrl &url);
     QString getFileName(const QUrl &url);
     QString getFile() const { return downloadingFileName; }
 
 private:
     QNetworkAccessManager manager;
-    qint64 prev_bytes = 0;
+    QNetworkReply *currentReply = nullptr;
+    QNetworkRequest request;
+    qint64 prev_bytes = 0, downloadSizeAtPause = 0;
+    qint64 rcvBytes = 0, totalBytes = 0;
+    qint64 byteSaved = 0;
     QString downloadingFileName;
-    bool isHttpRedirected(QNetworkReply *reply = nullptr);
-    bool saveToDisk(const QString &fileName, QIODevice *data);
+    QFile mFile;
+    QUrl downloadLink;
+    bool isHttpRedirected();
+    void beginNewDownload(QNetworkRequest &request);
+    bool saveToDisk();
 
     QTimer timer;
-    //QSound SoundEffect;
+    const QString downloadPath = QStandardPaths::standardLocations(QStandardPaths::DownloadLocation)[0]+"/";
     bool checkSpeed = false;
+    bool paused = false;
+    bool firstTymOnly = true;
+    bool oncePaused = false;
 
 signals:
     void downloadStarted(QString fileName);
@@ -40,12 +52,19 @@ signals:
     void updateprogressBarValue(int);
     void updateprogressBarMax(int);
     void updateDownloadStyle(QString);
+    void statusPaused(QString);
 
 private slots:
 
-    void downloadFinished(QNetworkReply *ntReply = nullptr);
+    void downloadFinished();
     void progress(qint64 rcv_bytes, qint64 total_bytes);
     void setCheckSpeed();
+
+public slots:
+
+    void pause();
+    void resume();
+    void cancel();
 };
 
 #endif // SDM_NETWORK_H

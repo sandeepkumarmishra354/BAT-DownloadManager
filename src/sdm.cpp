@@ -2,6 +2,7 @@
 #include <QInputDialog>
 #include <QUrl>
 #include <QApplication>
+#include <QCursor>
 #include "sdm.h"
 
 SDM::SDM(QWidget *parent) : QMainWindow(parent)
@@ -16,9 +17,18 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     quitDM = new QAction(tr("Quit"), this);
     quitDM->setIcon(QIcon(":/icons/dmIcon/quit.png"));
     connect(quitDM, SIGNAL(triggered()), this, SLOT(forceQuit()));
+    helpAction = new QAction(tr("help"), this);
+    helpAction->setIcon(QIcon(":/icons/dmIcon/help.png"));
+    settingAction = new QAction(tr("settings"), this);
+    settingAction->setIcon(QIcon(":/icons/dmIcon/setting.png"));
     tool_bar = addToolBar(tr("tool bar"));
+    spacerWidget = new QWidget;
+    spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     tool_bar->addAction(addTask);
     tool_bar->addAction(quitDM);
+    tool_bar->addWidget(spacerWidget);
+    tool_bar->addAction(settingAction);
+    tool_bar->addAction(helpAction);
 
     mainVlayout = new QVBoxLayout;
     mainVlayout->setAlignment(Qt::AlignHCenter);
@@ -29,44 +39,30 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     VLAYOUT->addWidget(&scrollArea);
     scrollArea.setWidgetResizable(true);
     MAIN_WIDGET.setLayout(VLAYOUT);
-    MAIN_WIDGET.setStyleSheet("background-color: #212121");
+    MAIN_WIDGET.setStyleSheet("background-color: #333333");
 
     appIcon.load(":/icons/dmIcon/app-icon.png");
     appIconLabel.setPixmap(appIcon);
     appNameLabel.setText(tr("BAT-DownloadManager (open-source)"));
+    appNameLabel.setStyleSheet("color: cyan");
     appIconLayout.addWidget(&appIconLabel);
     appIconLayout.addWidget(&appNameLabel);
     appIconLayout.setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     appIconWidget = new QWidget;
     appIconWidget->setLayout(&appIconLayout);
+    appIconWidget->setStyleSheet("background-color: #333333");
 
     if(noTasks)
         setCentralWidget(appIconWidget);
     else
         setCentralWidget(&MAIN_WIDGET);
 
-    createContextMenu();
-
     clipboard = QApplication::clipboard();
     oldClipboardText = clipboard->text();
 
     timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(checkClipboard()));
+    connect(timer, &QTimer::timeout, this, &SDM::checkClipboard);
     timer->start(500);
-}
-
-void SDM::createContextMenu()
-{
-    contextMenu = new QMenu(this);
-    startAction = new QAction(tr("Start"),contextMenu);
-    pauseAction = new QAction(tr("Pause"),contextMenu);
-    cancelAction = new QAction(tr("Cancel"),contextMenu);
-    clearAction = new QAction(tr("Remove"), contextMenu);
-
-    contextMenu->addAction(startAction);
-    contextMenu->addAction(pauseAction);
-    contextMenu->addAction(cancelAction);
-    contextMenu->addAction(clearAction);
 }
 
 void SDM::resizeEvent(QResizeEvent *e)
@@ -123,11 +119,12 @@ void SDM::addNewTask()
         dwnldspeedLabel->setStyleSheet("color: cyan");
         SDM_network *sdmnetwork = new SDM_network;
 
-        connect(sdmnetwork, SIGNAL(updateprogress(QString)), dwnldSizeLabel, SLOT(setText(QString)));
-        connect(sdmnetwork, SIGNAL(updateSpeed(QString)), dwnldspeedLabel, SLOT(setText(QString)));
-        connect(sdmnetwork, SIGNAL(updateprogressBarValue(int)), dwnldprogress, SLOT(setValue(int)));
-        connect(sdmnetwork, SIGNAL(updateprogressBarMax(int)), dwnldprogress, SLOT(setMaximum(int)));
-        connect(sdmnetwork, SIGNAL(updateDownloadStyle(QString)), dwnldLabel, SLOT(setStyleSheet(QString)));
+        connect(sdmnetwork, &SDM_network::updateprogress, dwnldSizeLabel, &QLabel::setText);
+        connect(sdmnetwork, &SDM_network::updateSpeed, dwnldspeedLabel, &QLabel::setText);
+        connect(sdmnetwork, &SDM_network::statusPaused, dwnldspeedLabel, &QLabel::setText);
+        connect(sdmnetwork, &SDM_network::updateprogressBarValue, dwnldprogress, &QProgressBar::setValue);
+        connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
+        connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
 
         sdmList.append(sdmnetwork);
         labelList.append(dwnldLabel);
@@ -151,22 +148,25 @@ void SDM::addNewTask()
         fileName = fileName.mid(fileName.lastIndexOf("/")+1);
         dwnldLabel->setText(fileName);
 
-        dwnldWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-        connect(dwnldWidget, SIGNAL(customContextMenuRequested(QPoint)),
-                this, SLOT(showContextMenu(QPoint)));
+        QAction *startAction = new QAction(tr("Start"));
+        QAction *pauseAction = new QAction(tr("Pause"));
+        QAction *cancelAction = new QAction(tr("Cancel"));
+        QAction *removeAction = new QAction(tr("Remove"));
+
+        connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
+        connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
+
+        actionList.append(startAction);
+        actionList.append(pauseAction);
+        actionList.append(cancelAction);
+        actionList.append(removeAction);
+
+        dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
+        dwnldWidget->addAction(startAction);
+        dwnldWidget->addAction(pauseAction);
+        dwnldWidget->addAction(cancelAction);
+        dwnldWidget->addAction(removeAction);
     }
-}
-
-void SDM::showContextMenu(QPoint pos)
-{
-    qDebug()<<"context menu";
-    contextMenu->popup(scrollArea.viewport()->mapToGlobal(pos));
-}
-
-void SDM::initContext(SDM_network *sdmnetwork)
-{
-    qDebug()<<"init context";
-    qDebug()<<sdmnetwork->getFile();
 }
 
 void SDM::checkClipboard()
@@ -195,6 +195,26 @@ void SDM::forceQuit()
     close();
 }
 
+void SDM::start()
+{
+    qDebug()<<"START";
+}
+
+void SDM::pause()
+{
+    qDebug()<<"PAUSE";
+}
+
+void SDM::cancel()
+{
+    qDebug()<<"CANCEL";
+}
+
+void SDM::clear()
+{
+    qDebug()<<"CLEAR";
+}
+
 void SDM::freeMem()
 {
     delete tool_bar;
@@ -202,7 +222,8 @@ void SDM::freeMem()
     delete mainVlayout;
     delete VLAYOUT;
     delete timer;
-    delete contextMenu;
+    delete settingAction;
+    delete helpAction;
 
     for(auto itm : sizelabelList)
         delete itm;
@@ -217,6 +238,8 @@ void SDM::freeMem()
     for(auto itm : widgetList)
         delete itm;
     for(auto itm : sdmList)
+        delete itm;
+    for(auto itm : actionList)
         delete itm;
 
     qDebug()<<"free mem";
