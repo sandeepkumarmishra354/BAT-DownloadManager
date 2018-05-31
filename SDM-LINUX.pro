@@ -26,11 +26,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
     src/sdm.cpp \
-    src/sdm_network.cpp
+    src/sdm_network.cpp \
+    src/help.cpp
 
 HEADERS += \
     src/sdm.h \
-    src/sdm_network.h
+    src/sdm_network.h \
+    src/help.h
 
 RESOURCES += \
     resource.qrc
