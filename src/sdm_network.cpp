@@ -7,33 +7,78 @@
 SDM_network::SDM_network(QObject *parent) : QObject(parent)
 {
     connect(&timer, &QTimer::timeout, this, &SDM_network::setCheckSpeed);
+    connect(&confManager, &QNetworkConfigurationManager::onlineStateChanged,
+            [this] (bool status) { networkAvailable = status; networkStateChanged(); });
+    networkAvailable = confManager.isOnline();
+
+    ++totalObj;
 }
+
+short SDM_network::totalObj = -1;
 
 void SDM_network::setCheckSpeed()
 {
     checkSpeed = true;
 }
 
+void SDM_network::networkStateChanged()
+{
+    if(!networkAvailable)
+    {
+        if(!paused)
+            pause();
+    }
+    if(networkAvailable)
+    {
+        if(paused && fromNetwork)
+            resume();
+        if(_atStartup)
+        {
+            _atStartup = false;
+            startNewDownload(downloadLink);
+        }
+
+    }
+}
+
 bool SDM_network::startNewDownload(const QUrl &url)
 {
-    request.setUrl(url);
     QString fileName = getFileName(url);
-    mFile.setFileName(fileName);
-    mFile.open(QIODevice::ReadWrite);
-    beginNewDownload(request);
     downloadingFileName = fileName;
     downloadLink = url;
-    emit downloadStarted(fileName);
-    timer.start(300);
-    downloadSizeAtPause = 0;
-    return true;
+
+    if(networkAvailable)
+    {
+        request.setUrl(url);
+        mFile.setFileName(fileName);
+        mFile.open(QIODevice::ReadWrite);
+        beginNewDownload(request);
+        emit downloadStarted(fileName);
+        timer.start(300);
+        downloadSizeAtPause = 0;
+        _atStartup = false;
+        return true;
+    }
+
+    else
+    {
+        emit updateSpeed("waiting for network...");
+        _atStartup = true;
+        mFile.close();
+        return false;
+    }
 }
 
 void SDM_network::beginNewDownload(QNetworkRequest &request)
 {
-    currentReply = manager.get(request);
-    connect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
-    connect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+    if(networkAvailable)
+    {
+        currentReply = manager.get(request);
+        connect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
+        connect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+    }
+    else
+        emit updateSpeed("waiting for network...");
 }
 
 void SDM_network::pause()
@@ -51,13 +96,23 @@ void SDM_network::pause()
         currentReply = nullptr;
         paused = true;
         oncePaused = true;
-        emit statusPaused("Paused");
+        if(networkAvailable)
+        {
+            emit statusPaused("Paused");
+            fromNetwork = false;
+        }
+        if(!networkAvailable)
+        {
+            emit statusPaused("waiting for network...");
+            fromNetwork = true;
+        }
     }
 }
 
 void SDM_network::resume()
 {
-    if(paused)
+    //bool __cc = !cancelled;
+    if(paused && !cancelled)
     {
         qDebug()<<"resume";
         byteSaved = downloadSizeAtPause = mFile.size();
@@ -66,11 +121,51 @@ void SDM_network::resume()
         beginNewDownload(request);
         paused = false;
     }
+    if(cancelled)
+    {
+        cancelled = false;
+        startNewDownload(downloadLink);
+    }
 }
 
 void SDM_network::cancel()
 {
     qDebug()<<"cancel";
+    if(!_atStartup)
+    {
+        if(!paused)
+        {
+            disconnect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
+            disconnect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+            currentReply->abort();
+            mFile.close();
+            mFile.remove();
+            prev_bytes = rcvBytes = totalBytes = downloadSizeAtPause = 0;
+            cancelled = true;
+            emit updateSpeed("cancelled");
+            emit updateprogressBarMax(100);
+            emit updateprogressBarValue(0);
+        }
+        if(paused)
+        {
+            if(mFile.isOpen())
+                mFile.close();
+            if(mFile.exists())
+                mFile.remove();
+            cancelled = true;
+            emit updateSpeed("cancelled");
+            emit updateprogressBarMax(100);
+            emit updateprogressBarValue(0);
+        }
+    }
+}
+
+void SDM_network::remove()
+{
+    qDebug()<<"remove";
+    _atStartup = false;
+    cancel();
+    emit removeSDM(_index_);
 }
 
 QString SDM_network::getFileName(const QUrl &url)
@@ -202,6 +297,8 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
         prev_bytes = rcv_bytes;
     }
 
+    if(!mFile.isOpen())
+        mFile.open(QIODevice::ReadWrite);
     mFile.write(currentReply->readAll());
     if(firstTymOnly)
     {
@@ -255,4 +352,5 @@ SDM_network::~SDM_network()
 {
     if(mFile.isOpen())
         mFile.close();
+    --totalObj;
 }

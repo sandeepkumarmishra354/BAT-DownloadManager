@@ -23,6 +23,7 @@
 #include <QPixmap>
 #include <QPoint>
 #include "sdm_network.h"
+#include "help.h"
 
 class SDM : public QMainWindow
 {
@@ -48,6 +49,7 @@ private:
     QAction *helpAction, *settingAction;
     QWidget *spacerWidget;
     QVBoxLayout *mainVlayout, *VLAYOUT;
+    Help *_help = new Help(this);
 
     QList <QLabel*> labelList;
     QList <QProgressBar*> progressbarList;
@@ -63,6 +65,7 @@ private:
 
     void resizeEvent(QResizeEvent *e = nullptr);
     void closeEvent(QCloseEvent *e);
+    void createAction();
 
 private slots:
     void addNewTask();
@@ -74,6 +77,7 @@ private slots:
     void start();
     void cancel();
     void clear();
+    void removeSDM(short);
 };
 
 #endif // SDM_H

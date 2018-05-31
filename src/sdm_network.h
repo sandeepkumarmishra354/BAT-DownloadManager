@@ -5,6 +5,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QNetworkConfigurationManager>
 #include <QString>
 #include <QIODevice>
 #include <QFile>
@@ -23,9 +24,11 @@ public:
     bool startNewDownload(const QUrl &url);
     QString getFileName(const QUrl &url);
     QString getFile() const { return downloadingFileName; }
+    short objectCount() const { return totalObj; }
 
 private:
     QNetworkAccessManager manager;
+    QNetworkConfigurationManager confManager;
     QNetworkReply *currentReply = nullptr;
     QNetworkRequest request;
     qint64 prev_bytes = 0, downloadSizeAtPause = 0;
@@ -34,6 +37,7 @@ private:
     QString downloadingFileName;
     QFile mFile;
     QUrl downloadLink;
+    short _index_ ;
     bool isHttpRedirected();
     void beginNewDownload(QNetworkRequest &request);
     bool saveToDisk();
@@ -44,6 +48,12 @@ private:
     bool paused = false;
     bool firstTymOnly = true;
     bool oncePaused = false;
+    bool networkAvailable;
+    bool fromNetwork = true;
+    bool _atStartup = false;
+    bool cancelled = false;
+
+    static short totalObj;
 
 signals:
     void downloadStarted(QString fileName);
@@ -53,18 +63,21 @@ signals:
     void updateprogressBarMax(int);
     void updateDownloadStyle(QString);
     void statusPaused(QString);
+    void removeSDM(short);
 
 private slots:
 
     void downloadFinished();
     void progress(qint64 rcv_bytes, qint64 total_bytes);
     void setCheckSpeed();
+    void networkStateChanged();
 
 public slots:
 
     void pause();
     void resume();
     void cancel();
+    void remove();
 };
 
 #endif // SDM_NETWORK_H

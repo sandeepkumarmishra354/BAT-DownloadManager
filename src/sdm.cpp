@@ -11,24 +11,8 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     setWindowIcon(QIcon(":/icons/dmIcon/app-icon.png"));
     setMinimumHeight(600);
     setMinimumWidth(500);
-    addTask = new QAction(tr("Add new"), this);
-    addTask->setIcon(QIcon(":/icons/dmIcon/new-task.png"));
-    connect(addTask, SIGNAL(triggered()), this, SLOT(addNewTask()));
-    quitDM = new QAction(tr("Quit"), this);
-    quitDM->setIcon(QIcon(":/icons/dmIcon/quit.png"));
-    connect(quitDM, SIGNAL(triggered()), this, SLOT(forceQuit()));
-    helpAction = new QAction(tr("help"), this);
-    helpAction->setIcon(QIcon(":/icons/dmIcon/help.png"));
-    settingAction = new QAction(tr("settings"), this);
-    settingAction->setIcon(QIcon(":/icons/dmIcon/setting.png"));
-    tool_bar = addToolBar(tr("tool bar"));
-    spacerWidget = new QWidget;
-    spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    tool_bar->addAction(addTask);
-    tool_bar->addAction(quitDM);
-    tool_bar->addWidget(spacerWidget);
-    tool_bar->addAction(settingAction);
-    tool_bar->addAction(helpAction);
+
+    createAction();
 
     mainVlayout = new QVBoxLayout;
     mainVlayout->setAlignment(Qt::AlignHCenter);
@@ -48,6 +32,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     appIconLayout.addWidget(&appIconLabel);
     appIconLayout.addWidget(&appNameLabel);
     appIconLayout.setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+
     appIconWidget = new QWidget;
     appIconWidget->setLayout(&appIconLayout);
     appIconWidget->setStyleSheet("background-color: #333333");
@@ -65,6 +50,29 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     timer->start(500);
 }
 
+void SDM::createAction()
+{
+    addTask = new QAction(tr("Add new"), this);
+    addTask->setIcon(QIcon(":/icons/dmIcon/new-task.png"));
+    connect(addTask, SIGNAL(triggered()), this, SLOT(addNewTask()));
+    quitDM = new QAction(tr("Quit"), this);
+    quitDM->setIcon(QIcon(":/icons/dmIcon/quit.png"));
+    connect(quitDM, &QAction::triggered, [this](){isForceQuit = true; close();});
+    helpAction = new QAction(tr("help"), this);
+    helpAction->setIcon(QIcon(":/icons/dmIcon/help.png"));
+    connect(helpAction, &QAction::triggered, _help, &Help::showHelp);
+    settingAction = new QAction(tr("settings"), this);
+    settingAction->setIcon(QIcon(":/icons/dmIcon/setting.png"));
+    tool_bar = addToolBar(tr("tool bar"));
+    spacerWidget = new QWidget;
+    spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    tool_bar->addAction(addTask);
+    tool_bar->addAction(quitDM);
+    tool_bar->addWidget(spacerWidget);
+    tool_bar->addAction(settingAction);
+    tool_bar->addAction(helpAction);
+}
+
 void SDM::resizeEvent(QResizeEvent *e)
 {
     if(e != nullptr)
@@ -78,7 +86,7 @@ void SDM::resizeEvent(QResizeEvent *e)
 void SDM::resizeWidgets()
 {
     for(auto itm : widgetList)
-        itm->setMinimumWidth(width()-50);
+        itm->setMinimumWidth(width()-100);
 }
 
 void SDM::closeEvent(QCloseEvent *e)
@@ -125,6 +133,7 @@ void SDM::addNewTask()
         connect(sdmnetwork, &SDM_network::updateprogressBarValue, dwnldprogress, &QProgressBar::setValue);
         connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
         connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
+        connect(sdmnetwork, &SDM_network::removeSDM, this, &SDM::removeSDM);
 
         sdmList.append(sdmnetwork);
         labelList.append(dwnldLabel);
@@ -140,11 +149,11 @@ void SDM::addNewTask()
         dwnldvLayout->addWidget(dwnldspeedLabel);
 
         dwnldWidget->setLayout(dwnldvLayout);
-        dwnldWidget->setMinimumWidth(width()-50);
+        dwnldWidget->setMinimumWidth(width()-100);
 
         mainVlayout->addWidget(dwnldWidget);
         sdmnetwork->startNewDownload(QUrl(urlText));
-        fileName = sdmnetwork->getFileName(QUrl(urlText));
+        fileName = sdmnetwork->getFile();
         fileName = fileName.mid(fileName.lastIndexOf("/")+1);
         dwnldLabel->setText(fileName);
 
@@ -155,18 +164,25 @@ void SDM::addNewTask()
 
         connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
         connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
-
-        actionList.append(startAction);
-        actionList.append(pauseAction);
-        actionList.append(cancelAction);
-        actionList.append(removeAction);
+        connect(cancelAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
+        connect(removeAction, &QAction::triggered, sdmnetwork, &SDM_network::remove);
 
         dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
         dwnldWidget->addAction(startAction);
         dwnldWidget->addAction(pauseAction);
         dwnldWidget->addAction(cancelAction);
         dwnldWidget->addAction(removeAction);
+
+        actionList.append(startAction);
+        actionList.append(pauseAction);
+        actionList.append(cancelAction);
+        actionList.append(removeAction);
     }
+}
+
+void SDM::removeSDM(short indexNo)
+{
+    qDebug()<<indexNo;
 }
 
 void SDM::checkClipboard()
@@ -224,6 +240,7 @@ void SDM::freeMem()
     delete timer;
     delete settingAction;
     delete helpAction;
+    delete _help;
 
     for(auto itm : sizelabelList)
         delete itm;
