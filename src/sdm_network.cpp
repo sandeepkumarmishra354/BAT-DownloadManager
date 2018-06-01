@@ -12,6 +12,7 @@ SDM_network::SDM_network(QObject *parent) : QObject(parent)
     networkAvailable = confManager.isOnline();
 
     ++totalObj;
+    timer.start(300);
 }
 
 short SDM_network::totalObj = -1;
@@ -54,7 +55,6 @@ bool SDM_network::startNewDownload(const QUrl &url)
         mFile.open(QIODevice::ReadWrite);
         beginNewDownload(request);
         emit downloadStarted(fileName);
-        timer.start(300);
         downloadSizeAtPause = 0;
         _atStartup = false;
         return true;
@@ -184,6 +184,7 @@ QString SDM_network::getFileName(const QUrl &url)
         fileName = QString::number(i) + fileName;
     }
 
+    emit setFileName(fileName);
     return downloadPath + fileName;
 }
 
@@ -346,6 +347,7 @@ void SDM_network::downloadFinished()
     }
 
     currentReply->deleteLater();
+    emit quitThread();
 }
 
 SDM_network::~SDM_network()
@@ -353,4 +355,5 @@ SDM_network::~SDM_network()
     if(mFile.isOpen())
         mFile.close();
     --totalObj;
+    emit quitThread();
 }

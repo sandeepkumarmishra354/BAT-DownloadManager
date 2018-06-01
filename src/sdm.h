@@ -22,6 +22,7 @@
 #include <QTimer>
 #include <QPixmap>
 #include <QPoint>
+#include <QThread>
 #include "sdm_network.h"
 #include "help.h"
 
@@ -59,6 +60,7 @@ private:
     QList <QLabel*> speedlabelList;
     QList <SDM_network*> sdmList;
     QList <QAction*> actionList;
+    QList <QThread*> threadList;
 
     bool noTasks = true;
     bool isForceQuit = false;

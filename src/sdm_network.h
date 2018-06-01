@@ -21,7 +21,6 @@ class SDM_network : public QObject
 public:
     explicit SDM_network(QObject *parent = nullptr);
     ~SDM_network();
-    bool startNewDownload(const QUrl &url);
     QString getFileName(const QUrl &url);
     QString getFile() const { return downloadingFileName; }
     short objectCount() const { return totalObj; }
@@ -64,6 +63,8 @@ signals:
     void updateDownloadStyle(QString);
     void statusPaused(QString);
     void removeSDM(SDM_network*);
+    void setFileName(QString);
+    void quitThread();
 
 private slots:
 
@@ -78,6 +79,7 @@ public slots:
     void resume();
     void cancel();
     void remove();
+    bool startNewDownload(const QUrl &url);
 };
 
 #endif // SDM_NETWORK_H

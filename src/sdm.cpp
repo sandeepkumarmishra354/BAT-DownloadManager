@@ -133,6 +133,7 @@ void SDM::addNewTask()
         connect(sdmnetwork, &SDM_network::updateprogressBarValue, dwnldprogress, &QProgressBar::setValue);
         connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
         connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
+        connect(sdmnetwork, &SDM_network::setFileName, dwnldLabel, &QLabel::setText);
         connect(sdmnetwork, &SDM_network::removeSDM, this, &SDM::removeSDM);
 
         sdmList.append(sdmnetwork);
@@ -152,10 +153,13 @@ void SDM::addNewTask()
         dwnldWidget->setMinimumWidth(width()-100);
 
         mainVlayout->addWidget(dwnldWidget);
-        sdmnetwork->startNewDownload(QUrl(urlText));
-        fileName = sdmnetwork->getFile();
-        fileName = fileName.mid(fileName.lastIndexOf("/")+1);
-        dwnldLabel->setText(fileName);
+        QThread *mThread = new QThread;
+        threadList.append(mThread);
+        sdmnetwork->moveToThread(mThread);
+        connect(mThread, &QThread::started,
+               [sdmnetwork, urlText](){sdmnetwork->startNewDownload(QUrl(urlText));});
+        connect(sdmnetwork, &SDM_network::quitThread, mThread, &QThread::quit);
+        mThread->start();
 
         QAction *startAction = new QAction(tr("Start"));
         QAction *pauseAction = new QAction(tr("Pause"));
@@ -259,6 +263,8 @@ void SDM::freeMem()
     for(auto itm : sdmList)
         delete itm;
     for(auto itm : actionList)
+        delete itm;
+    for(auto itm : threadList)
         delete itm;
 
     qDebug()<<"free mem";
