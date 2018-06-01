@@ -77,7 +77,7 @@ private slots:
     void start();
     void cancel();
     void clear();
-    void removeSDM(short);
+    void removeSDM(SDM_network*);
 };
 
 #endif // SDM_H

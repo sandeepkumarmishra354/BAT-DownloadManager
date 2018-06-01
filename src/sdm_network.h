@@ -63,7 +63,7 @@ signals:
     void updateprogressBarMax(int);
     void updateDownloadStyle(QString);
     void statusPaused(QString);
-    void removeSDM(short);
+    void removeSDM(SDM_network*);
 
 private slots:
 

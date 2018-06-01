@@ -7,6 +7,8 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QString>
+#include <QPixmap>
 
 class Help : public QDialog
 {
@@ -18,11 +20,13 @@ public:
 
 private:
     QVBoxLayout vLayout;
-    QLabel detailTextLabel;
-    QPushButton cancelButton, qtButton, batdmButton;
+    QLabel detailTextLabel, logoLabel, opensourceLabel;
+    QPixmap pixmap;
+    QPushButton cancelButton, qtButton;
 
 public slots:
     void showHelp();
+    QString detail();
 };
 
 #endif // HELP_H

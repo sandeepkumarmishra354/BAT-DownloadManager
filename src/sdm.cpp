@@ -28,7 +28,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     appIcon.load(":/icons/dmIcon/app-icon.png");
     appIconLabel.setPixmap(appIcon);
     appNameLabel.setText(tr("BAT-DownloadManager (open-source)"));
-    appNameLabel.setStyleSheet("color: cyan");
+    appNameLabel.setStyleSheet("color: purple; font: bold");
     appIconLayout.addWidget(&appIconLabel);
     appIconLayout.addWidget(&appNameLabel);
     appIconLayout.setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
@@ -180,9 +180,11 @@ void SDM::addNewTask()
     }
 }
 
-void SDM::removeSDM(short indexNo)
+void SDM::removeSDM(SDM_network *sdm)
 {
-    qDebug()<<indexNo;
+    qDebug()<<sdm->getFile();
+    short index = sdmList.indexOf(sdm);
+    widgetList[index]->hide();
 }
 
 void SDM::checkClipboard()
