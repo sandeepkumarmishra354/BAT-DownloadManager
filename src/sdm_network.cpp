@@ -6,21 +6,18 @@
 
 SDM_network::SDM_network(QObject *parent) : QObject(parent)
 {
-    connect(&timer, &QTimer::timeout, this, &SDM_network::setCheckSpeed);
+    connect(&timer, &QTimer::timeout, [this](){checkSpeed = true;});
     connect(&confManager, &QNetworkConfigurationManager::onlineStateChanged,
             [this] (bool status) { networkAvailable = status; networkStateChanged(); });
     networkAvailable = confManager.isOnline();
 
     ++totalObj;
+    successSound = new QSound(":/resources/success.wav");
+    failSound = new QSound(":/resources/fail.wav");
     timer.start(300);
 }
 
 short SDM_network::totalObj = -1;
-
-void SDM_network::setCheckSpeed()
-{
-    checkSpeed = true;
-}
 
 void SDM_network::networkStateChanged()
 {
@@ -311,7 +308,7 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
 
 void SDM_network::downloadFinished()
 {
-    QUrl url = currentReply->url();
+    //QUrl url = currentReply->url();
     if(currentReply->error())
     {
         char cmd[] = "notify-send 'BAT-DownloadManager' 'download fail' '-t' 5000";
@@ -319,7 +316,7 @@ void SDM_network::downloadFinished()
         emit updateDownloadStyle("color: red");
         emit updateSpeed("Failed");
         system(cmd);
-        QSound::play(":/icons/soundEffect/fail.wav");
+        failSound->play();
     }
     else
     {
@@ -330,7 +327,7 @@ void SDM_network::downloadFinished()
             emit updateDownloadStyle("color: red");
             emit updateSpeed("Failed");
             system(cmd);
-            QSound::play(":/icons/soundEffect/fail.wav");
+            failSound->play();
         }
         else
         {
@@ -341,7 +338,7 @@ void SDM_network::downloadFinished()
                 system(cmd);
                 emit updateDownloadStyle("color: pink");
                 emit updateSpeed("Completed");
-                QSound::play(":/icons/soundEffect/success.wav");
+                successSound->play();
             }
         }
     }

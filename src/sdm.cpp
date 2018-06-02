@@ -8,7 +8,7 @@
 SDM::SDM(QWidget *parent) : QMainWindow(parent)
 {
     setWindowTitle(tr("BAT-DownloadManager"));
-    setWindowIcon(QIcon(":/icons/dmIcon/app-icon.png"));
+    setWindowIcon(QIcon(":/resources/app-icon.png"));
     setMinimumHeight(600);
     setMinimumWidth(500);
 
@@ -25,7 +25,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     MAIN_WIDGET.setLayout(VLAYOUT);
     MAIN_WIDGET.setStyleSheet("background-color: #333333");
 
-    appIcon.load(":/icons/dmIcon/app-icon.png");
+    appIcon.load(":/resources/app-icon.png");
     appIconLabel.setPixmap(appIcon);
     appNameLabel.setText(tr("BAT-DownloadManager (open-source)"));
     appNameLabel.setStyleSheet("color: purple; font: bold");
@@ -53,16 +53,16 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
 void SDM::createAction()
 {
     addTask = new QAction(tr("Add new"), this);
-    addTask->setIcon(QIcon(":/icons/dmIcon/new-task.png"));
+    addTask->setIcon(QIcon(":/resources/new-task.png"));
     connect(addTask, SIGNAL(triggered()), this, SLOT(addNewTask()));
     quitDM = new QAction(tr("Quit"), this);
-    quitDM->setIcon(QIcon(":/icons/dmIcon/quit.png"));
+    quitDM->setIcon(QIcon(":/resources/quit.png"));
     connect(quitDM, &QAction::triggered, [this](){isForceQuit = true; close();});
     helpAction = new QAction(tr("help"), this);
-    helpAction->setIcon(QIcon(":/icons/dmIcon/help.png"));
+    helpAction->setIcon(QIcon(":/resources/help.png"));
     connect(helpAction, &QAction::triggered, _help, &Help::showHelp);
     settingAction = new QAction(tr("settings"), this);
-    settingAction->setIcon(QIcon(":/icons/dmIcon/setting.png"));
+    settingAction->setIcon(QIcon(":/resources/setting.png"));
     tool_bar = addToolBar(tr("tool bar"));
     spacerWidget = new QWidget;
     spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -116,7 +116,7 @@ void SDM::addNewTask()
             centralWidget()->setParent(0);
             setCentralWidget(&MAIN_WIDGET);
         }
-        QString fileName;
+        //QString fileName;
         QLabel *dwnldLabel = new QLabel(tr("Downloading file"));
         QProgressBar *dwnldprogress = new QProgressBar;
         QVBoxLayout *dwnldvLayout = new QVBoxLayout;

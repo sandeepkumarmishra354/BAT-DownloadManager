@@ -42,6 +42,7 @@ private:
     bool saveToDisk();
 
     QTimer timer;
+    QSound *successSound, *failSound;
     const QString downloadPath = QStandardPaths::standardLocations(QStandardPaths::DownloadLocation)[0]+"/";
     bool checkSpeed = false;
     bool paused = false;
@@ -70,7 +71,6 @@ private slots:
 
     void downloadFinished();
     void progress(qint64 rcv_bytes, qint64 total_bytes);
-    void setCheckSpeed();
     void networkStateChanged();
 
 public slots:

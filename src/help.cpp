@@ -16,7 +16,7 @@ Help::Help(QWidget *parent) : QDialog(parent)
     connect(&cancelButton, &QPushButton::clicked, this, &Help::close);
     qtButton.setText("About Qt");
     connect(&qtButton, &QPushButton::clicked, qApp, &QApplication::aboutQt);
-    pixmap.load(":/icons/dmIcon/app-icon.png");
+    pixmap.load(":/resources/app-icon.png");
     pixmap = pixmap.scaled(70,70,Qt::KeepAspectRatio);
     logoLabel.setPixmap(pixmap);
     logoLabel.setAlignment(Qt::AlignCenter);
