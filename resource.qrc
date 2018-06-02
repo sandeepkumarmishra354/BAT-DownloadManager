@@ -1,11 +1,11 @@
 <RCC>
-    <qresource prefix="/icons">
-        <file>dmIcon/new-task.png</file>
-        <file>soundEffect/fail.wav</file>
-        <file>dmIcon/app-icon.png</file>
-        <file>dmIcon/quit.png</file>
-        <file>soundEffect/success.wav</file>
-        <file>dmIcon/help.png</file>
-        <file>dmIcon/setting.png</file>
+    <qresource prefix="/resources">
+        <file alias="new-task.png">dmIcon/new-task.png</file>
+        <file alias="fail.wav">soundEffect/fail.wav</file>
+        <file alias="app-icon.png">dmIcon/app-icon.png</file>
+        <file alias="quit.png">dmIcon/quit.png</file>
+        <file alias="success.wav">soundEffect/success.wav</file>
+        <file alias="help.png">dmIcon/help.png</file>
+        <file alias="setting.png">dmIcon/setting.png</file>
     </qresource>
 </RCC>
