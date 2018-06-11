@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QApplication>
 #include <QCursor>
+#include <QMessageBox>
 #include "sdm.h"
 
 SDM::SDM(QWidget *parent) : QMainWindow(parent)
@@ -28,7 +29,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     appIcon.load(":/resources/app-icon.png");
     appIconLabel.setPixmap(appIcon);
     appNameLabel.setText(tr("BAT-DownloadManager (open-source)"));
-    appNameLabel.setStyleSheet("color: purple; font: bold");
+    appNameLabel.setStyleSheet("color: darkcyan; font: bold");
     appIconLayout.addWidget(&appIconLabel);
     appIconLayout.addWidget(&appNameLabel);
     appIconLayout.setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
@@ -54,15 +55,18 @@ void SDM::createAction()
 {
     addTask = new QAction(tr("Add new"), this);
     addTask->setIcon(QIcon(":/resources/new-task.png"));
+    addTask->setShortcut(QKeySequence::New);
     connect(addTask, SIGNAL(triggered()), this, SLOT(addNewTask()));
     quitDM = new QAction(tr("Quit"), this);
     quitDM->setIcon(QIcon(":/resources/quit.png"));
+    quitDM->setShortcut(tr("CTRL+Q"));
     connect(quitDM, &QAction::triggered, [this](){isForceQuit = true; close();});
     helpAction = new QAction(tr("help"), this);
     helpAction->setIcon(QIcon(":/resources/help.png"));
-    connect(helpAction, &QAction::triggered, _help, &Help::showHelp);
+    connect(helpAction, &QAction::triggered, _help, &Help::show);
     settingAction = new QAction(tr("settings"), this);
     settingAction->setIcon(QIcon(":/resources/setting.png"));
+    connect(settingAction, &QAction::triggered, _setting, &Setting::show);
     tool_bar = addToolBar(tr("tool bar"));
     spacerWidget = new QWidget;
     spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -106,26 +110,40 @@ void SDM::closeEvent(QCloseEvent *e)
 void SDM::addNewTask()
 {
     QString urlText;
-    bool ok;
+    bool ok, isLink = false;
     qDebug()<<"Add new task";
     urlText = QInputDialog::getText(this, "Add Url", "URL", QLineEdit::Normal, dwnldurl, &ok);
-    if(ok && !urlText.isEmpty())
+    if(urlText.contains("www",Qt::CaseInsensitive)||urlText.contains("http",Qt::CaseInsensitive)||
+       urlText.contains(".com",Qt::CaseInsensitive)||urlText.contains(".in",Qt::CaseInsensitive)||
+       urlText.contains(".us",Qt::CaseInsensitive)||urlText.contains(".uk",Qt::CaseInsensitive))
+    {
+        isLink = true;
+    }
+    if(!isLink && ok)
+    {
+        QMessageBox::warning(this, "url error", "please enter a valid link", QMessageBox::Ok);
+        return;
+    }
+    if(ok && !urlText.isEmpty() && isLink)
     {
         if(centralWidget() != &MAIN_WIDGET)
         {
             centralWidget()->setParent(0);
             setCentralWidget(&MAIN_WIDGET);
         }
-        //QString fileName;
-        QLabel *dwnldLabel = new QLabel(tr("Downloading file"));
-        QProgressBar *dwnldprogress = new QProgressBar;
-        QVBoxLayout *dwnldvLayout = new QVBoxLayout;
+
         QWidget *dwnldWidget = new QWidget;
-        QLabel *dwnldSizeLabel = new QLabel(tr("0/0    00 kb/s"));
+        QVBoxLayout *dwnldvLayout = new QVBoxLayout(dwnldWidget);
+        QLabel *dwnldLabel = new QLabel(dwnldWidget);
+        dwnldLabel->setText(tr("Downloading file"));
+        QProgressBar *dwnldprogress = new QProgressBar(dwnldWidget);
+        QLabel *dwnldSizeLabel = new QLabel(dwnldWidget);
+        dwnldSizeLabel->setText(tr("0/0    00 kb/s"));
         dwnldSizeLabel->setStyleSheet("color: pink");
-        QLabel *dwnldspeedLabel = new QLabel(tr("0 kb/ps"));
+        QLabel *dwnldspeedLabel = new QLabel(dwnldWidget);
+        dwnldspeedLabel->setText(tr("0 kb/ps"));
         dwnldspeedLabel->setStyleSheet("color: cyan");
-        SDM_network *sdmnetwork = new SDM_network;
+        SDM_network *sdmnetwork = new SDM_network(dwnldWidget);
 
         connect(sdmnetwork, &SDM_network::updateprogress, dwnldSizeLabel, &QLabel::setText);
         connect(sdmnetwork, &SDM_network::updateSpeed, dwnldspeedLabel, &QLabel::setText);
@@ -137,12 +155,7 @@ void SDM::addNewTask()
         connect(sdmnetwork, &SDM_network::removeSDM, this, &SDM::removeSDM);
 
         sdmList.append(sdmnetwork);
-        labelList.append(dwnldLabel);
-        progressbarList.append(dwnldprogress);
-        vboxList.append(dwnldvLayout);
         widgetList.append(dwnldWidget);
-        sizelabelList.append(dwnldSizeLabel);
-        speedlabelList.append(dwnldspeedLabel);
 
         dwnldvLayout->addWidget(dwnldLabel);
         dwnldvLayout->addWidget(dwnldprogress);
@@ -153,7 +166,7 @@ void SDM::addNewTask()
         dwnldWidget->setMinimumWidth(width()-100);
 
         mainVlayout->addWidget(dwnldWidget);
-        QThread *mThread = new QThread;
+        QThread *mThread = new QThread(sdmnetwork);
         threadList.append(mThread);
         sdmnetwork->moveToThread(mThread);
         connect(mThread, &QThread::started,
@@ -161,34 +174,38 @@ void SDM::addNewTask()
         connect(sdmnetwork, &SDM_network::quitThread, mThread, &QThread::quit);
         mThread->start();
 
-        QAction *startAction = new QAction(tr("Start"));
-        QAction *pauseAction = new QAction(tr("Pause"));
-        QAction *cancelAction = new QAction(tr("Cancel"));
-        QAction *removeAction = new QAction(tr("Remove"));
+        QAction *startAction = new QAction(tr("Start"),dwnldWidget);
+        QAction *pauseAction = new QAction(tr("Pause"),dwnldWidget);
+        QAction *cancelAction = new QAction(tr("Cancel"),dwnldWidget);
+        QAction *removeAction = new QAction(tr("Remove"),dwnldWidget);
 
         connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
         connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
         connect(cancelAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
-        connect(removeAction, &QAction::triggered, sdmnetwork, &SDM_network::remove);
+        connect(removeAction, &QAction::triggered, this, &SDM::removeSDM);
 
         dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
         dwnldWidget->addAction(startAction);
         dwnldWidget->addAction(pauseAction);
         dwnldWidget->addAction(cancelAction);
         dwnldWidget->addAction(removeAction);
-
-        actionList.append(startAction);
-        actionList.append(pauseAction);
-        actionList.append(cancelAction);
-        actionList.append(removeAction);
     }
 }
 
-void SDM::removeSDM(SDM_network *sdm)
+void SDM::removeSDM()
 {
-    qDebug()<<sdm->getFile();
-    short index = sdmList.indexOf(sdm);
-    widgetList[index]->hide();
+    QObject *action_obj = sender();
+    QAction *act_cast = qobject_cast<QAction*>(action_obj);
+    if(action_obj != 0)
+    {
+        //qDebug()<<sdm->getFile();
+        //short index = sdmList.indexOf(sdm);
+        //widgetList[index]->hide();
+        qDebug()<<"action= "<<act_cast->text();
+        act_cast->parentWidget()->hide();
+    }
+    else
+        qDebug()<<"nullptr";
 }
 
 void SDM::checkClipboard()
@@ -217,26 +234,6 @@ void SDM::forceQuit()
     close();
 }
 
-void SDM::start()
-{
-    qDebug()<<"START";
-}
-
-void SDM::pause()
-{
-    qDebug()<<"PAUSE";
-}
-
-void SDM::cancel()
-{
-    qDebug()<<"CANCEL";
-}
-
-void SDM::clear()
-{
-    qDebug()<<"CLEAR";
-}
-
 void SDM::freeMem()
 {
     delete tool_bar;
@@ -247,24 +244,9 @@ void SDM::freeMem()
     delete settingAction;
     delete helpAction;
     delete _help;
+    delete _setting;
 
-    for(auto itm : sizelabelList)
-        delete itm;
-    for(auto itm : speedlabelList)
-        delete itm;
-    for(auto itm : labelList)
-        delete itm;
-    for(auto itm : progressbarList)
-        delete itm;
-    for(auto itm : vboxList)
-        delete itm;
     for(auto itm : widgetList)
-        delete itm;
-    for(auto itm : sdmList)
-        delete itm;
-    for(auto itm : actionList)
-        delete itm;
-    for(auto itm : threadList)
         delete itm;
 
     qDebug()<<"free mem";

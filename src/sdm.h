@@ -25,6 +25,7 @@
 #include <QThread>
 #include "sdm_network.h"
 #include "help.h"
+#include "setting.h"
 
 class SDM : public QMainWindow
 {
@@ -50,16 +51,12 @@ private:
     QAction *helpAction, *settingAction;
     QWidget *spacerWidget;
     QVBoxLayout *mainVlayout, *VLAYOUT;
-    Help *_help = new Help(this);
 
-    QList <QLabel*> labelList;
-    QList <QProgressBar*> progressbarList;
+    Help *_help = new Help(this);
+    Setting *_setting = new Setting(this);
+
     QList <QWidget*> widgetList;
-    QList <QVBoxLayout*> vboxList;
-    QList <QLabel*> sizelabelList;
-    QList <QLabel*> speedlabelList;
     QList <SDM_network*> sdmList;
-    QList <QAction*> actionList;
     QList <QThread*> threadList;
 
     bool noTasks = true;
@@ -75,11 +72,7 @@ private slots:
     void checkClipboard();
     void forceQuit();
     void freeMem();
-    void pause();
-    void start();
-    void cancel();
-    void clear();
-    void removeSDM(SDM_network*);
+    void removeSDM();
 };
 
 #endif // SDM_H

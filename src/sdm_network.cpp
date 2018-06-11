@@ -162,7 +162,7 @@ void SDM_network::remove()
     qDebug()<<"remove";
     _atStartup = false;
     cancel();
-    emit removeSDM(this);
+    emit removeSDM();
 }
 
 QString SDM_network::getFileName(const QUrl &url)

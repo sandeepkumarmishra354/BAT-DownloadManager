@@ -63,7 +63,7 @@ signals:
     void updateprogressBarMax(int);
     void updateDownloadStyle(QString);
     void statusPaused(QString);
-    void removeSDM(SDM_network*);
+    void removeSDM();
     void setFileName(QString);
     void quitThread();
 

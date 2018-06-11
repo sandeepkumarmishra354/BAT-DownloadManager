@@ -23,9 +23,6 @@ private:
     QLabel detailTextLabel, logoLabel, opensourceLabel;
     QPixmap pixmap;
     QPushButton cancelButton, qtButton;
-
-public slots:
-    void showHelp();
     QString detail();
 };
 
