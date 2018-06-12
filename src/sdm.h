@@ -59,12 +59,15 @@ private:
     QList <SDM_network*> sdmList;
     QList <QThread*> threadList;
 
+    const QString downloadPath = QStandardPaths::standardLocations(QStandardPaths::DownloadLocation)[0]+"/";
+
     bool noTasks = true;
     bool isForceQuit = false;
 
     void resizeEvent(QResizeEvent *e = nullptr);
     void closeEvent(QCloseEvent *e);
     void createAction();
+    void loadTasks();
 
 private slots:
     void addNewTask();

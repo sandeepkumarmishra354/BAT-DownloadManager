@@ -49,6 +49,8 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &SDM::checkClipboard);
     timer->start(500);
+
+    loadTasks();
 }
 
 void SDM::createAction()
@@ -77,6 +79,11 @@ void SDM::createAction()
     tool_bar->addAction(helpAction);
 }
 
+void SDM::loadTasks()
+{
+    qDebug()<<"Load tasks...";
+}
+
 void SDM::resizeEvent(QResizeEvent *e)
 {
     if(e != nullptr)
@@ -90,15 +97,41 @@ void SDM::resizeEvent(QResizeEvent *e)
 void SDM::resizeWidgets()
 {
     for(auto itm : widgetList)
-        itm->setMinimumWidth(width()-100);
+        itm->setMinimumWidth(width()-80);
 }
 
 void SDM::closeEvent(QCloseEvent *e)
 {
+    bool running = false;
     if(isForceQuit)
     {
-        freeMem();
-        e->accept();
+        for(auto itm : sdmList)
+        {
+            running = itm->isRunning();
+            if(running)
+                break;
+        }
+        if(running)
+        {
+            int status = QMessageBox::warning(this, "warning", "Some tasks are running\nAre you sure ?",
+                           QMessageBox::No | QMessageBox::Yes);
+            switch(status)
+            {
+                case QMessageBox::Yes:
+                    freeMem();
+                    e->accept();
+                    break;
+                case QMessageBox::No:
+                    e->ignore();
+                    break;
+            }
+        }
+        else
+        {
+            freeMem();
+            e->accept();
+        }
+
     }
     else
     {
@@ -152,7 +185,6 @@ void SDM::addNewTask()
         connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
         connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
         connect(sdmnetwork, &SDM_network::setFileName, dwnldLabel, &QLabel::setText);
-        connect(sdmnetwork, &SDM_network::removeSDM, this, &SDM::removeSDM);
 
         sdmList.append(sdmnetwork);
         widgetList.append(dwnldWidget);
@@ -163,7 +195,7 @@ void SDM::addNewTask()
         dwnldvLayout->addWidget(dwnldspeedLabel);
 
         dwnldWidget->setLayout(dwnldvLayout);
-        dwnldWidget->setMinimumWidth(width()-100);
+        dwnldWidget->setMinimumWidth(width()-80);
 
         mainVlayout->addWidget(dwnldWidget);
         QThread *mThread = new QThread(sdmnetwork);
@@ -182,6 +214,7 @@ void SDM::addNewTask()
         connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
         connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
         connect(cancelAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
+        connect(removeAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
         connect(removeAction, &QAction::triggered, this, &SDM::removeSDM);
 
         dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
@@ -198,14 +231,11 @@ void SDM::removeSDM()
     QAction *act_cast = qobject_cast<QAction*>(action_obj);
     if(action_obj != 0)
     {
-        //qDebug()<<sdm->getFile();
-        //short index = sdmList.indexOf(sdm);
-        //widgetList[index]->hide();
         qDebug()<<"action= "<<act_cast->text();
         act_cast->parentWidget()->hide();
     }
     else
-        qDebug()<<"nullptr";
+        qDebug()<<"Widget remove Error";
 }
 
 void SDM::checkClipboard()

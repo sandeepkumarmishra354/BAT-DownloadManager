@@ -44,6 +44,7 @@ bool SDM_network::startNewDownload(const QUrl &url)
     QString fileName = getFileName(url);
     downloadingFileName = fileName;
     downloadLink = url;
+    downloadLinkString = url.toString();
 
     if(networkAvailable)
     {
@@ -73,6 +74,8 @@ void SDM_network::beginNewDownload(QNetworkRequest &request)
         currentReply = manager.get(request);
         connect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
         connect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+        connect(currentReply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error),
+                this, &SDM_network::errorOccur);
     }
     else
         emit updateSpeed("waiting for network...");
@@ -80,28 +83,32 @@ void SDM_network::beginNewDownload(QNetworkRequest &request)
 
 void SDM_network::pause()
 {
-    if(!paused)
+    if(!thereIsError)
     {
-        qDebug()<<"pause";
-        if(currentReply == nullptr)
-            return;
-        disconnect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
-        disconnect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
-        mFile.write(currentReply->readAll());
-        qDebug()<<currentReply->readAll();
-        currentReply->abort();
-        currentReply = nullptr;
-        paused = true;
-        oncePaused = true;
-        if(networkAvailable)
+        if(!paused)
         {
-            emit statusPaused("Paused");
-            fromNetwork = false;
-        }
-        if(!networkAvailable)
-        {
-            emit statusPaused("waiting for network...");
-            fromNetwork = true;
+            qDebug()<<"pause";
+            if(currentReply == nullptr)
+                return;
+            disconnect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
+            disconnect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+            mFile.write(currentReply->readAll());
+            qDebug()<<currentReply->readAll();
+            currentReply->abort();
+            currentReply = nullptr;
+            paused = true;
+            oncePaused = true;
+            if(networkAvailable)
+            {
+                emit statusPaused("Paused");
+                fromNetwork = false;
+            }
+            if(!networkAvailable)
+            {
+                emit statusPaused("waiting for network...");
+                fromNetwork = true;
+            }
+            running = false;
         }
     }
 }
@@ -123,38 +130,50 @@ void SDM_network::resume()
         cancelled = false;
         startNewDownload(downloadLink);
     }
+
+    thereIsError = false;
 }
 
 void SDM_network::cancel()
 {
     qDebug()<<"cancel";
-    if(!_atStartup)
+    if(!thereIsError)
     {
-        if(!paused)
+        if(!_atStartup)
         {
-            disconnect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
-            disconnect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
-            currentReply->abort();
-            mFile.close();
-            mFile.remove();
-            prev_bytes = rcvBytes = totalBytes = downloadSizeAtPause = 0;
-            cancelled = true;
-            emit updateSpeed("cancelled");
-            emit updateprogressBarMax(100);
-            emit updateprogressBarValue(0);
-        }
-        if(paused)
-        {
-            if(mFile.isOpen())
+            if(!paused)
+            {
+                disconnect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
+                disconnect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
+                currentReply->abort();
                 mFile.close();
-            if(mFile.exists())
                 mFile.remove();
-            cancelled = true;
-            emit updateSpeed("cancelled");
-            emit updateprogressBarMax(100);
-            emit updateprogressBarValue(0);
+                prev_bytes = rcvBytes = totalBytes = downloadSizeAtPause = 0;
+                cancelled = true;
+                running = false;
+                emit updateSpeed("cancelled");
+                emit updateprogressBarMax(100);
+                emit updateprogressBarValue(0);
+            }
+            if(paused)
+            {
+                if(mFile.isOpen())
+                    mFile.close();
+                if(mFile.exists())
+                    mFile.remove();
+                cancelled = true;
+                running = false;
+                emit updateSpeed("cancelled");
+                emit updateprogressBarMax(100);
+                emit updateprogressBarValue(0);
+            }
         }
     }
+
+    if(sFile.isOpen())
+        sFile.close();
+    sFile.setFileName(downloadingFileName+".inf");
+    sFile.remove();
 }
 
 void SDM_network::remove()
@@ -162,7 +181,16 @@ void SDM_network::remove()
     qDebug()<<"remove";
     _atStartup = false;
     cancel();
+    emit quitThread();
     emit removeSDM();
+}
+
+void SDM_network::errorOccur(QNetworkReply::NetworkError code)
+{
+    qDebug()<<"DOWNLOAD ERROR...";
+    qDebug()<<code;
+    thereIsError = true;
+    running = false;
 }
 
 QString SDM_network::getFileName(const QUrl &url)
@@ -190,13 +218,6 @@ bool SDM_network::isHttpRedirected()
     int statusCode = currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     return statusCode == 301 || statusCode == 302 || statusCode == 303
            || statusCode == 305 || statusCode == 307 || statusCode == 308;
-}
-
-bool SDM_network::saveToDisk()
-{
-    mFile.write(currentReply->readAll());
-    mFile.close();
-    return true;
 }
 
 void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
@@ -282,9 +303,11 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
     }
 
     QString status = rcvString+"/"+totalString;
+
     emit updateprogress(status);
     emit updateprogressBarValue(rcv_bytes/1024);
     emit updateprogressBarMax(total_bytes/1024);
+    //emit saveInfo(total_bytes, rcv_bytes, downloadLinkString);
 
     if(checkSpeed)
     {
@@ -304,11 +327,32 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
         firstTymOnly = false;
     }
     rcvBytes = rcv_bytes;
+    if(rcv_bytes > rcvBytes)
+    {
+        thereIsError = false;
+        running = false;
+    }
+    else
+        running = true;
+    saveInfoToDisk();
+}
+
+void SDM_network::saveInfoToDisk()
+{
+    sFile.setFileName(downloadingFileName+".inf");
+    sFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
+
+    QTextStream stream(&sFile);
+    stream << "DO NOT MODIFY THE CONTENTS OF THIS FILE" << endl;
+    stream << downloadLinkString << endl;
+    stream << totalBytes << endl;
+    stream << rcvBytes;
+
+    sFile.close();
 }
 
 void SDM_network::downloadFinished()
 {
-    //QUrl url = currentReply->url();
     if(currentReply->error())
     {
         char cmd[] = "notify-send 'BAT-DownloadManager' 'download fail' '-t' 5000";
@@ -344,13 +388,26 @@ void SDM_network::downloadFinished()
     }
 
     currentReply->deleteLater();
+    if(sFile.isOpen())
+        sFile.close();
+    sFile.setFileName(downloadingFileName+".inf");
+    sFile.remove();
     emit quitThread();
+}
+
+bool SDM_network::saveToDisk()
+{
+    mFile.write(currentReply->readAll());
+    mFile.close();
+    return true;
 }
 
 SDM_network::~SDM_network()
 {
     if(mFile.isOpen())
         mFile.close();
+    if(sFile.isOpen())
+        sFile.close();
     --totalObj;
     emit quitThread();
 }

@@ -13,6 +13,7 @@
 #include <QUrl>
 #include <QSound>
 #include <QStandardPaths>
+#include <QTextStream>
 
 class SDM_network : public QObject
 {
@@ -35,7 +36,9 @@ private:
     qint64 byteSaved = 0;
     QString downloadingFileName;
     QFile mFile;
+    QFile sFile;
     QUrl downloadLink;
+    QString downloadLinkString;
     short _index_ ;
     bool isHttpRedirected();
     void beginNewDownload(QNetworkRequest &request);
@@ -52,6 +55,8 @@ private:
     bool fromNetwork = true;
     bool _atStartup = false;
     bool cancelled = false;
+    bool thereIsError = false;
+    bool running = false;
 
     static short totalObj;
 
@@ -72,6 +77,8 @@ private slots:
     void downloadFinished();
     void progress(qint64 rcv_bytes, qint64 total_bytes);
     void networkStateChanged();
+    void saveInfoToDisk();
+    void errorOccur(QNetworkReply::NetworkError code);
 
 public slots:
 
@@ -79,6 +86,7 @@ public slots:
     void resume();
     void cancel();
     void remove();
+    bool isRunning() { return running; }
     bool startNewDownload(const QUrl &url);
 };
 
