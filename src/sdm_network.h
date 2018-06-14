@@ -25,6 +25,7 @@ public:
     QString getFileName(const QUrl &url);
     QString getFile() const { return downloadingFileName; }
     short objectCount() const { return totalObj; }
+    static short totalDownloads();
 
 private:
     QNetworkAccessManager manager;
@@ -39,7 +40,7 @@ private:
     QFile sFile;
     QUrl downloadLink;
     QString downloadLinkString;
-    short _index_ ;
+    short _index_;
     bool isHttpRedirected();
     void beginNewDownload(QNetworkRequest &request);
     bool saveToDisk();
@@ -57,6 +58,9 @@ private:
     bool cancelled = false;
     bool thereIsError = false;
     bool running = false;
+    bool isRestore = false;
+    bool fromRemove = false;
+    bool completed = false;
 
     static short totalObj;
 
@@ -87,7 +91,9 @@ public slots:
     void cancel();
     void remove();
     bool isRunning() { return running; }
+    bool isCompleted() { return completed; }
     bool startNewDownload(const QUrl &url);
+    void setSavedByte(qint64, qint64, QString, QString);
 };
 
 #endif // SDM_NETWORK_H

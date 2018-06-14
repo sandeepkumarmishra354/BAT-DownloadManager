@@ -9,7 +9,14 @@ Help::Help(QWidget *parent) : QDialog(parent)
     detailTextLabel.setText(detail());
     detailTextLabel.setStyleSheet("color:white");
     connect(&detailTextLabel, &QLabel::linkActivated,
-           [](QString link){QDesktopServices::openUrl(QUrl(link));});
+           [](QString link)
+           {
+                if(link.contains("mailto", Qt::CaseInsensitive))
+                    qDebug()<<"question or bug report\nwait your default email client will be open";
+                else
+                    qDebug()<<"GitHub repo. you can contribute here";
+                QDesktopServices::openUrl(QUrl(link));
+           });
 
     cancelButton.setText("Ok");
     cancelButton.setFocus();

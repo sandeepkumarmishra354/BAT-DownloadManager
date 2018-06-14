@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QCursor>
 #include <QMessageBox>
+#include <QDir>
 #include "sdm.h"
 
 SDM::SDM(QWidget *parent) : QMainWindow(parent)
@@ -82,6 +83,68 @@ void SDM::createAction()
 void SDM::loadTasks()
 {
     qDebug()<<"Load tasks...";
+    QStringList fileList;
+    QDir dir(downloadPath);
+    fileList = dir.entryList(QStringList()<<"*.inf",QDir::Files);
+    for(auto itm : fileList)
+    {
+        qDebug()<<itm;
+        QFile file(downloadPath+itm);
+        if(file.open(QIODevice::ReadOnly))
+        {
+            QString data = file.readAll();
+            QStringList dataList = data.split("\n", QString::SkipEmptyParts);
+            dataList.removeFirst(); // removes the warning message
+            addToContainer(dataList);
+            file.close();
+            qDebug()<<dataList;
+        }
+    }
+
+    restoreTasks();
+}
+
+void SDM::addToContainer(QStringList dataList)
+{
+    if(_tInfo == nullptr)
+    {
+        _tInfo = new taskInfo;
+        _tInfo->link = dataList[0];
+        _tInfo->fileName = dataList[1];
+        _tInfo->totalByte = dataList[2].toLong();
+        _tInfo->rcvByte = dataList[3].toLong();
+    }
+    else
+    {
+        taskInfo *tmp = _tInfo;
+        while(tmp->next != nullptr)
+        {
+            tmp = tmp->next;
+        }
+        taskInfo *tmpNode = new taskInfo;
+        tmpNode->link = dataList[0];
+        tmpNode->fileName = dataList[1];
+        tmpNode->totalByte = dataList[2].toLong();
+        tmpNode->rcvByte = dataList[3].toLong();
+
+        tmp->next = tmpNode;
+    }
+}
+
+void SDM::restoreTasks()
+{
+    qDebug()<<"RESTORE";
+    taskInfo *tmp = _tInfo;
+    while(tmp != nullptr)
+    {
+        maxValue = tmp->totalByte;
+        minValue = tmp->rcvByte;
+        _link_ = tmp->link;
+        _fileName = tmp->fileName;
+        isRestore = true;
+        createDownloadWidgets(tmp->link);
+        tmp = tmp->next;
+    }
 }
 
 void SDM::resizeEvent(QResizeEvent *e)
@@ -89,7 +152,8 @@ void SDM::resizeEvent(QResizeEvent *e)
     if(e != nullptr)
     {
         QMainWindow::resizeEvent(e);
-        qDebug()<<width();
+        qDebug()<<"width: "<<width();
+        qDebug()<<"height: "<<height();
         resizeWidgets();
     }
 }
@@ -105,6 +169,7 @@ void SDM::closeEvent(QCloseEvent *e)
     bool running = false;
     if(isForceQuit)
     {
+        qDebug()<<"Force quit";
         for(auto itm : sdmList)
         {
             running = itm->isRunning();
@@ -113,21 +178,25 @@ void SDM::closeEvent(QCloseEvent *e)
         }
         if(running)
         {
+            qDebug()<<"Some tasks are still running ::: Are you sure ?";
             int status = QMessageBox::warning(this, "warning", "Some tasks are running\nAre you sure ?",
                            QMessageBox::No | QMessageBox::Yes);
             switch(status)
             {
                 case QMessageBox::Yes:
+                    qDebug()<<"Yes close";
                     freeMem();
                     e->accept();
                     break;
                 case QMessageBox::No:
+                    qDebug()<<"No don't close";
                     e->ignore();
                     break;
             }
         }
         else
         {
+            qDebug()<<"Exiting...";
             freeMem();
             e->accept();
         }
@@ -135,6 +204,8 @@ void SDM::closeEvent(QCloseEvent *e)
     }
     else
     {
+        qDebug()<<"Bat-Dm is now hidden (running in background)";
+        qDebug()<<"copy any link and it will automatically pop up";
         e->ignore();
         hide();
     }
@@ -154,85 +225,125 @@ void SDM::addNewTask()
     }
     if(!isLink && ok)
     {
+        qDebug()<<"You entered an invalid link";
         QMessageBox::warning(this, "url error", "please enter a valid link", QMessageBox::Ok);
         return;
     }
     if(ok && !urlText.isEmpty() && isLink)
     {
-        if(centralWidget() != &MAIN_WIDGET)
-        {
-            centralWidget()->setParent(0);
-            setCentralWidget(&MAIN_WIDGET);
-        }
-
-        QWidget *dwnldWidget = new QWidget;
-        QVBoxLayout *dwnldvLayout = new QVBoxLayout(dwnldWidget);
-        QLabel *dwnldLabel = new QLabel(dwnldWidget);
-        dwnldLabel->setText(tr("Downloading file"));
-        QProgressBar *dwnldprogress = new QProgressBar(dwnldWidget);
-        QLabel *dwnldSizeLabel = new QLabel(dwnldWidget);
-        dwnldSizeLabel->setText(tr("0/0    00 kb/s"));
-        dwnldSizeLabel->setStyleSheet("color: pink");
-        QLabel *dwnldspeedLabel = new QLabel(dwnldWidget);
-        dwnldspeedLabel->setText(tr("0 kb/ps"));
-        dwnldspeedLabel->setStyleSheet("color: cyan");
-        SDM_network *sdmnetwork = new SDM_network(dwnldWidget);
-
-        connect(sdmnetwork, &SDM_network::updateprogress, dwnldSizeLabel, &QLabel::setText);
-        connect(sdmnetwork, &SDM_network::updateSpeed, dwnldspeedLabel, &QLabel::setText);
-        connect(sdmnetwork, &SDM_network::statusPaused, dwnldspeedLabel, &QLabel::setText);
-        connect(sdmnetwork, &SDM_network::updateprogressBarValue, dwnldprogress, &QProgressBar::setValue);
-        connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
-        connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
-        connect(sdmnetwork, &SDM_network::setFileName, dwnldLabel, &QLabel::setText);
-
-        sdmList.append(sdmnetwork);
-        widgetList.append(dwnldWidget);
-
-        dwnldvLayout->addWidget(dwnldLabel);
-        dwnldvLayout->addWidget(dwnldprogress);
-        dwnldvLayout->addWidget(dwnldSizeLabel);
-        dwnldvLayout->addWidget(dwnldspeedLabel);
-
-        dwnldWidget->setLayout(dwnldvLayout);
-        dwnldWidget->setMinimumWidth(width()-80);
-
-        mainVlayout->addWidget(dwnldWidget);
-        QThread *mThread = new QThread(sdmnetwork);
-        threadList.append(mThread);
-        sdmnetwork->moveToThread(mThread);
-        connect(mThread, &QThread::started,
-               [sdmnetwork, urlText](){sdmnetwork->startNewDownload(QUrl(urlText));});
-        connect(sdmnetwork, &SDM_network::quitThread, mThread, &QThread::quit);
-        mThread->start();
-
-        QAction *startAction = new QAction(tr("Start"),dwnldWidget);
-        QAction *pauseAction = new QAction(tr("Pause"),dwnldWidget);
-        QAction *cancelAction = new QAction(tr("Cancel"),dwnldWidget);
-        QAction *removeAction = new QAction(tr("Remove"),dwnldWidget);
-
-        connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
-        connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
-        connect(cancelAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
-        connect(removeAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
-        connect(removeAction, &QAction::triggered, this, &SDM::removeSDM);
-
-        dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
-        dwnldWidget->addAction(startAction);
-        dwnldWidget->addAction(pauseAction);
-        dwnldWidget->addAction(cancelAction);
-        dwnldWidget->addAction(removeAction);
+        qDebug()<<"Link- "<<urlText;
+        createDownloadWidgets(urlText);
     }
+}
+
+void SDM::createDownloadWidgets(QString urlText)
+{
+    if(centralWidget() != &MAIN_WIDGET)
+    {
+        centralWidget()->setParent(0);
+        setCentralWidget(&MAIN_WIDGET);
+    }
+
+    QWidget *dwnldWidget = new QWidget;
+    QVBoxLayout *dwnldvLayout = new QVBoxLayout(dwnldWidget);
+    QLabel *dwnldLabel = new QLabel(dwnldWidget);
+    dwnldLabel->setText(tr("Downloading file"));
+    QProgressBar *dwnldprogress = new QProgressBar(dwnldWidget);
+    QLabel *dwnldSizeLabel = new QLabel(dwnldWidget);
+    dwnldSizeLabel->setText(tr("0/0    00 kb/s"));
+    dwnldSizeLabel->setStyleSheet("color: pink");
+    QLabel *dwnldspeedLabel = new QLabel(dwnldWidget);
+    dwnldspeedLabel->setText(tr("0 kb/ps"));
+    dwnldspeedLabel->setStyleSheet("color: cyan");
+    SDM_network *sdmnetwork = new SDM_network;
+
+    connect(sdmnetwork, &SDM_network::updateprogress, dwnldSizeLabel, &QLabel::setText);
+    connect(sdmnetwork, &SDM_network::updateSpeed, dwnldspeedLabel, &QLabel::setText);
+    connect(sdmnetwork, &SDM_network::statusPaused, dwnldspeedLabel, &QLabel::setText);
+    connect(sdmnetwork, &SDM_network::updateprogressBarValue, dwnldprogress, &QProgressBar::setValue);
+    connect(sdmnetwork, &SDM_network::updateprogressBarMax, dwnldprogress, &QProgressBar::setMaximum);
+    connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
+    connect(sdmnetwork, &SDM_network::setFileName, dwnldLabel, &QLabel::setText);
+
+    sdmList.append(sdmnetwork);
+    widgetList.append(dwnldWidget);
+
+    dwnldvLayout->addWidget(dwnldLabel);
+    dwnldvLayout->addWidget(dwnldprogress);
+    dwnldvLayout->addWidget(dwnldSizeLabel);
+    dwnldvLayout->addWidget(dwnldspeedLabel);
+
+    dwnldWidget->setLayout(dwnldvLayout);
+    dwnldWidget->setMinimumWidth(width()-80);
+
+    mainVlayout->addWidget(dwnldWidget);
+    QThread *mThread = new QThread(sdmnetwork);
+    threadList.append(mThread);
+    sdmnetwork->moveToThread(mThread);
+
+    connect(mThread, &QThread::started,
+           [sdmnetwork, urlText, this] ()
+           {
+                if(isRestore)
+                {
+                    sdmnetwork->setSavedByte(minValue, maxValue, urlText, _fileName);
+                    isRestore = false;
+                }
+                else
+                    sdmnetwork->startNewDownload(QUrl(urlText));
+           });
+
+    connect(sdmnetwork, &SDM_network::quitThread, mThread, &QThread::quit);
+    mThread->start();
+    if(isRestore)
+    {
+        dwnldprogress->setMaximum(maxValue);
+        dwnldprogress->setValue(minValue);
+        isRestore = false;
+    }
+
+    QAction *startAction = new QAction(tr("Start"),dwnldWidget);
+    QAction *pauseAction = new QAction(tr("Pause"),dwnldWidget);
+    QAction *cancelAction = new QAction(tr("Cancel"),dwnldWidget);
+    QAction *removeAction = new QAction(tr("Remove"),dwnldWidget);
+
+    connect(startAction, &QAction::triggered, sdmnetwork, &SDM_network::resume);
+    connect(pauseAction, &QAction::triggered, sdmnetwork, &SDM_network::pause);
+    connect(cancelAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
+    connect(removeAction, &QAction::triggered, sdmnetwork, &SDM_network::cancel);
+    connect(removeAction, &QAction::triggered, this, &SDM::removeSDM);
+
+    dwnldWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
+    dwnldWidget->addAction(startAction);
+    dwnldWidget->addAction(pauseAction);
+    dwnldWidget->addAction(cancelAction);
+    dwnldWidget->addAction(removeAction);
 }
 
 void SDM::removeSDM()
 {
     QObject *action_obj = sender();
     QAction *act_cast = qobject_cast<QAction*>(action_obj);
+    QWidget *wid;
+    SDM_network *sdm;
     if(action_obj != 0)
     {
         qDebug()<<"action= "<<act_cast->text();
-        act_cast->parentWidget()->hide();
+        wid = act_cast->parentWidget();
+        sdm = sdmList[widgetList.indexOf(wid)];
+        wid->hide();
+        sdm->remove();
+        delete sdm;
+        sdmList.removeOne(sdm);
+        if(SDM_network::totalDownloads() == 0)
+        {
+            if(centralWidget() == &MAIN_WIDGET)
+            {
+                centralWidget()->setParent(0);
+                setCentralWidget(appIconWidget);
+            }
+        }
+        qDebug()<<"widgets removed";
     }
     else
         qDebug()<<"Widget remove Error";
@@ -252,6 +363,8 @@ void SDM::checkClipboard()
             else
                 raise();
 
+            qDebug()<<"new link copied into clipboard";
+            qDebug()<<"link: "<<dwnldurl;
             addNewTask();
             oldClipboardText = dwnldurl;
         }
@@ -261,6 +374,7 @@ void SDM::checkClipboard()
 void SDM::forceQuit()
 {
     isForceQuit = true;
+    qDebug()<<"Force Quit";
     close();
 }
 
@@ -278,6 +392,10 @@ void SDM::freeMem()
 
     for(auto itm : widgetList)
         delete itm;
+    for(auto itm : sdmList)
+        delete itm;
+    if(_tInfo != nullptr)
+        delete _tInfo;
 
     qDebug()<<"free mem";
 }

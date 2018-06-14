@@ -63,11 +63,33 @@ private:
 
     bool noTasks = true;
     bool isForceQuit = false;
+    bool isRestore = false;
 
     void resizeEvent(QResizeEvent *e = nullptr);
     void closeEvent(QCloseEvent *e);
     void createAction();
+    void createDownloadWidgets(QString urlText = "");
     void loadTasks();
+    void restoreTasks();
+    void addToContainer(QStringList dataList);
+
+    struct taskInfo
+    {
+        taskInfo() { }
+        ~taskInfo()
+        {
+            if(next != nullptr)
+                delete next;
+        }
+        QString link, fileName;
+        qint64 totalByte, rcvByte;
+        taskInfo *next = nullptr;
+    };
+
+    taskInfo *_tInfo = nullptr;
+
+    qint64 maxValue, minValue;
+    QString _link_, _fileName;
 
 private slots:
     void addNewTask();
