@@ -47,6 +47,7 @@ Help::Help(QWidget *parent) : QDialog(parent)
     setModal(true);
 }
 
+// returns details with some styles (HTML/CSS)
 QString Help::detail()
 {
     QString _detail_;

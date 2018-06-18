@@ -40,15 +40,19 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     appIconWidget->setLayout(&appIconLayout);
     appIconWidget->setStyleSheet("background-color: #263238");
 
+    // if there is no tasks then show the app icon as main widget
     if(noTasks)
         setCentralWidget(appIconWidget);
+    // otherwise show tasks as main widget
     else
         setCentralWidget(&MAIN_WIDGET);
 
+    // when new link is copied the lambda function executes
     clipboardManager = new ClipBoardManager(this);
     connect(clipboardManager, &ClipBoardManager::newLinkCopied,
            [this](QString link){dwnldurl=link; addNewTask();});
 
+    // checks that any previous tasks are completed or not
     loadTasks();
 }
 
@@ -85,7 +89,9 @@ void SDM::loadTasks()
     qDebug()<<"Load tasks...";
     QStringList fileList;
     QDir dir(downloadPath);
+    // contains a list of detail files
     fileList = dir.entryList(QStringList()<<"*.inf",QDir::Files);
+    // iterate through each file
     for(auto itm : fileList)
     {
         qDebug()<<itm;
@@ -95,12 +101,14 @@ void SDM::loadTasks()
             QString data = file.readAll();
             QStringList dataList = data.split("\n", QString::SkipEmptyParts);
             dataList.removeFirst(); // removes the warning message
+            // adds the details to container (linked list)
             addToContainer(dataList);
             file.close();
             qDebug()<<dataList;
         }
     }
 
+    // finally restore the tasks
     restoreTasks();
 }
 
@@ -109,10 +117,10 @@ void SDM::addToContainer(QStringList dataList)
     if(_tInfo == nullptr)
     {
         _tInfo = new taskInfo;
-        _tInfo->link = dataList[0];
-        _tInfo->fileName = dataList[1];
-        _tInfo->totalByte = dataList[2].toLong();
-        _tInfo->rcvByte = dataList[3].toLong();
+        _tInfo->link = dataList[0]; // downloading file url
+        _tInfo->fileName = dataList[1]; // downloading file name
+        _tInfo->totalByte = dataList[2].toLong(); // total size of file
+        _tInfo->rcvByte = dataList[3].toLong(); // size of downloaded bytes
     }
     else
     {
@@ -122,10 +130,10 @@ void SDM::addToContainer(QStringList dataList)
             tmp = tmp->next;
         }
         taskInfo *tmpNode = new taskInfo;
-        tmpNode->link = dataList[0];
-        tmpNode->fileName = dataList[1];
-        tmpNode->totalByte = dataList[2].toLong();
-        tmpNode->rcvByte = dataList[3].toLong();
+        tmpNode->link = dataList[0]; // downloading file url
+        tmpNode->fileName = dataList[1]; // downloading file name
+        tmpNode->totalByte = dataList[2].toLong(); // total size of file
+        tmpNode->rcvByte = dataList[3].toLong(); // size of downloaded bytes
 
         tmp->next = tmpNode;
     }
@@ -142,11 +150,13 @@ void SDM::restoreTasks()
         _link_ = tmp->link;
         _fileName = tmp->fileName;
         isRestore = true;
+        // creates downloading widgets with full details
         createDownloadWidgets(tmp->link);
         tmp = tmp->next;
     }
 }
 
+// every time the App size will change the function will also execute
 void SDM::resizeEvent(QResizeEvent *e)
 {
     if(e != nullptr)
@@ -154,6 +164,7 @@ void SDM::resizeEvent(QResizeEvent *e)
         QMainWindow::resizeEvent(e);
         qDebug()<<"width: "<<width();
         qDebug()<<"height: "<<height();
+        // resize the widgets according to new window size
         resizeWidgets();
     }
 }
@@ -164,38 +175,41 @@ void SDM::resizeWidgets()
         itm->setMinimumWidth(width()-80);
 }
 
+// when user try to close the program this function will executes
 void SDM::closeEvent(QCloseEvent *e)
 {
     bool running = false;
-    if(isForceQuit)
+    if(isForceQuit) // means suspend all progress and close the program
     {
         qDebug()<<"Force quit";
+        // checks that there is any ongoing task or not
         for(auto itm : sdmList)
         {
             running = itm->isRunning();
             if(running)
                 break;
         }
-        if(running)
+        if(running) // means there are some tasks that are currently running
         {
+            // show a warning message
             qDebug()<<"Some tasks are still running ::: Are you sure ?";
             int status = QMessageBox::warning(this, "warning", "Some tasks are running\nAre you sure ?",
                            QMessageBox::No | QMessageBox::Yes);
             switch(status)
             {
-                case QMessageBox::Yes:
+                case QMessageBox::Yes: // suspend all process and close the program
                     qDebug()<<"Yes close";
                     freeMem();
                     clipboardManager->exitThread();
                     e->accept();
                     break;
-                case QMessageBox::No:
+                case QMessageBox::No: // don't suspend any process and don't close the program
                     qDebug()<<"No don't close";
                     e->ignore();
                     break;
             }
         }
-        else
+        else // No tasks are running close the program
         {
             qDebug()<<"Exiting...";
             clipboardManager->exitThread();
@@ -204,6 +218,8 @@ void SDM::closeEvent(QCloseEvent *e)
         }
 
     }
+    // if user closes the program from native close button them simply hide the program
+    // and let it run in background
     else
     {
         qDebug()<<"Bat-Dm is now hidden (running in background)";
@@ -219,19 +235,20 @@ void SDM::addNewTask()
     bool ok, isLink = false;
     qDebug()<<"Add new task";
     urlText = QInputDialog::getText(this, "Add Url", "URL", QLineEdit::Normal, dwnldurl, &ok);
+    // checks that given url is link or not
     if(urlText.contains("www",Qt::CaseInsensitive)||urlText.contains("http",Qt::CaseInsensitive)||
        urlText.contains(".com",Qt::CaseInsensitive)||urlText.contains(".in",Qt::CaseInsensitive)||
        urlText.contains(".us",Qt::CaseInsensitive)||urlText.contains(".uk",Qt::CaseInsensitive))
     {
         isLink = true;
     }
-    if(!isLink && ok)
+    if(!isLink && ok) // given url is not a link
     {
         qDebug()<<"You entered an invalid link";
         QMessageBox::warning(this, "url error", "please enter a valid link", QMessageBox::Ok);
         return;
     }
-    if(ok && !urlText.isEmpty() && isLink)
+    if(ok && !urlText.isEmpty() && isLink) // given url is a link
     {
         qDebug()<<"Link- "<<urlText;
         createDownloadWidgets(urlText);
@@ -240,6 +257,7 @@ void SDM::addNewTask()
 
 void SDM::createDownloadWidgets(QString urlText)
 {
+    // remove the appicon as main widget and set tasks as main widget
     if(centralWidget() != &MAIN_WIDGET)
     {
         centralWidget()->setParent(0);
@@ -258,6 +276,7 @@ void SDM::createDownloadWidgets(QString urlText)
     QLabel *dwnldspeedLabel = new QLabel(dwnldWidget);
     dwnldspeedLabel->setText(tr("0 kb/ps"));
     dwnldspeedLabel->setStyleSheet("color: cyan");
+    // responsible for downloading files
     SDM_network *sdmnetwork = new SDM_network;
 
     connect(sdmnetwork, &SDM_network::updateprogress, dwnldSizeLabel, &QLabel::setText);
@@ -268,7 +287,9 @@ void SDM::createDownloadWidgets(QString urlText)
     connect(sdmnetwork, &SDM_network::updateDownloadStyle, dwnldLabel, &QLabel::setStyleSheet);
     connect(sdmnetwork, &SDM_network::setFileName, dwnldLabel, &QLabel::setText);
 
+    // sdmnetwork var container
     sdmList.append(sdmnetwork);
+    // widget container
     widgetList.append(dwnldWidget);
 
     dwnldvLayout->addWidget(dwnldLabel);
@@ -281,29 +302,29 @@ void SDM::createDownloadWidgets(QString urlText)
 
     mainVlayout->addWidget(dwnldWidget);
     QThread *mThread = new QThread(sdmnetwork);
+    // thread container
     threadList.append(mThread);
+    // set downloading file as a seperate thread
     sdmnetwork->moveToThread(mThread);
 
     connect(mThread, &QThread::started,
-           [sdmnetwork, urlText, this] ()
+           [sdmnetwork,dwnldprogress,urlText,this] ()
            {
-                if(isRestore)
+                if(isRestore) // previous uncompleted tasks
                 {
                     sdmnetwork->setSavedByte(minValue, maxValue, urlText, _fileName);
+                    dwnldprogress->setMaximum(maxValue);
+                    dwnldprogress->setValue(minValue);
                     isRestore = false;
                 }
-                else
+                else // fresh tasks
                     sdmnetwork->startNewDownload(QUrl(urlText));
            });
 
+    // when download finish quit the thread
     connect(sdmnetwork, &SDM_network::quitThread, mThread, &QThread::quit);
+    // start downloading in a new thread
     mThread->start();
-    if(isRestore)
-    {
-        dwnldprogress->setMaximum(maxValue);
-        dwnldprogress->setValue(minValue);
-        isRestore = false;
-    }
 
     QAction *startAction = new QAction(tr("Start"),dwnldWidget);
     QAction *pauseAction = new QAction(tr("Pause"),dwnldWidget);
@@ -325,7 +346,8 @@ void SDM::createDownloadWidgets(QString urlText)
 
 void SDM::removeSDM()
 {
-    QObject *action_obj = sender();
+    QObject *action_obj = sender();// returns signal sender object
+    // cast the QObject into QAction bcz we know that QAction is only responsible for this slot
     QAction *act_cast = qobject_cast<QAction*>(action_obj);
     QWidget *wid;
     SDM_network *sdm;
@@ -334,7 +356,9 @@ void SDM::removeSDM()
         qDebug()<<"action= "<<act_cast->text();
         wid = act_cast->parentWidget();
         sdm = sdmList[widgetList.indexOf(wid)];
+        // hodes main tasks
         wid->hide();
+        // remove and stop download
         sdm->remove();
         delete sdm;
         sdmList.removeOne(sdm);
@@ -352,6 +376,7 @@ void SDM::removeSDM()
         qDebug()<<"Widget remove Error";
 }
 
+// when user clicks on cross icon this function executes
 void SDM::forceQuit()
 {
     isForceQuit = true;
@@ -359,6 +384,7 @@ void SDM::forceQuit()
     close();
 }
 
+// release the memory
 void SDM::freeMem()
 {
     delete tool_bar;

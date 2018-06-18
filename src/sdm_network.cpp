@@ -8,13 +8,14 @@
 SDM_network::SDM_network(QObject *parent) : QObject(parent)
 {
     connect(&timer, &QTimer::timeout, [this](){checkSpeed = true;});
+    // every time when network state will change this lambda function executes
     connect(&confManager, &QNetworkConfigurationManager::onlineStateChanged,
             [this] (bool status) { networkAvailable = status; networkStateChanged(); });
     networkAvailable = confManager.isOnline();
 
-    ++totalObj;
-    successSound = new QSound(":/resources/success.wav");
-    failSound = new QSound(":/resources/fail.wav");
+    ++totalObj; // increment when new obj. will be created
+    successSound = new QSound(":/resources/success.wav"); // download success sound
+    failSound = new QSound(":/resources/fail.wav"); // download fail sound
     timer.start(100);
 }
 
@@ -26,13 +27,13 @@ short SDM_network::totalDownloads()
 
 void SDM_network::networkStateChanged()
 {
-    if(!networkAvailable)
+    if(!networkAvailable) // there is no network available then pause the ongoing downloads
     {
         if(!paused)
             pause();
         qDebug()<<"Network unavailable";
     }
-    if(networkAvailable)
+    if(networkAvailable) // network available ,,, start the tasks
     {
         if(paused && fromNetwork)
             resume();
@@ -45,9 +46,10 @@ void SDM_network::networkStateChanged()
     }
 }
 
+// responsible for starting a new fresh download
 bool SDM_network::startNewDownload(const QUrl &url)
 {
-    QString fileName = getFileName(url);
+    QString fileName = getFileName(url); // returns the file name from given url
 
     if(networkAvailable)
     {
@@ -92,6 +94,7 @@ void SDM_network::beginNewDownload(QNetworkRequest &request)
    isRestore = false;
 }
 
+// pause the currently running task
 void SDM_network::pause()
 {
     if(!thereIsError)
@@ -125,6 +128,7 @@ void SDM_network::pause()
     }
 }
 
+// resume paused tasks
 void SDM_network::resume()
 {
     if(paused && !cancelled)
@@ -146,6 +150,7 @@ void SDM_network::resume()
     thereIsError = false;
 }
 
+// Cancel a tasks
 void SDM_network::cancel()
 {
     qDebug()<<"cancel";
@@ -185,6 +190,7 @@ void SDM_network::cancel()
     removeInfoFile();
 }
 
+// remove a taks permanantly
 void SDM_network::remove()
 {
     qDebug()<<"remove SDM";
@@ -196,6 +202,7 @@ void SDM_network::remove()
     emit removeSDM();
 }
 
+// restore previous downloads
 void SDM_network::setSavedByte(qint64 sb, qint64 tb, QString link, QString fileName)
 {
     QUrl url(link);
@@ -214,6 +221,7 @@ void SDM_network::setSavedByte(qint64 sb, qint64 tb, QString link, QString fileN
     qDebug()<<"restoring...";
 }
 
+// when any error occured this function executs
 void SDM_network::errorOccur(QNetworkReply::NetworkError code)
 {
     qDebug()<<"DOWNLOAD ERROR...";
@@ -222,6 +230,7 @@ void SDM_network::errorOccur(QNetworkReply::NetworkError code)
     running = false;
 }
 
+// returns file name from given url
 QString SDM_network::getFileName(const QUrl &url)
 {
     QString path = url.path();
@@ -247,6 +256,7 @@ QString SDM_network::getFileName(const QUrl &url)
     return downloadPath + fileName;
 }
 
+// checks that link is redirected or not
 bool SDM_network::isHttpRedirected()
 {
     qDebug()<<"checking redirection...";
@@ -265,6 +275,7 @@ bool SDM_network::isHttpRedirected()
     return redirected;
 }
 
+// save and analyze the progress of a task
 void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
 {
     if(!firstTymOnly)
@@ -273,8 +284,10 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
         rcv_bytes += byteSaved;
     QString rcvString;
     QString totalString;
+    // size in bytes
     if(rcv_bytes < 1024) // byte
         rcvString = QString::number(rcv_bytes)+" bytes";
+    // size in KB
     if(rcv_bytes > 1024) // kb
     {
         qreal rcvreal = rcv_bytes/1024;
@@ -287,9 +300,11 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
             }
             rcvString.append(" KB");
         }
+        // size in MB
         else // mb
         {
             rcvreal = rcvreal/1024;
+            // size in GB
             if(rcvreal < 1024) // gb
             {
                 rcvString = QString::number(rcvreal);
@@ -389,6 +404,7 @@ void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
     qDebug()<<"progress: "<<status<<" **** "<<"speed: "<<gSpeed;
 }
 
+// when program is about to close this function saves details of incomplete tasks
 void SDM_network::saveInfoToDisk()
 {
     if(!fromRemove && !completed)
@@ -415,6 +431,7 @@ void SDM_network::saveInfoToDisk()
     }
 }
 
+// removes the info file of task
 void SDM_network::removeInfoFile()
 {
     if(sFile.isOpen())
@@ -423,9 +440,10 @@ void SDM_network::removeInfoFile()
     sFile.remove();
 }
 
+// when downloading is finished
 void SDM_network::downloadFinished()
 {
-    if(currentReply->error())
+    if(currentReply->error())// if any error
     {
         char cmd[] = "notify-send 'BAT-DownloadManager' 'download fail' '-t' 5000";
         qDebug()<<"Network error (failed)";
@@ -437,7 +455,7 @@ void SDM_network::downloadFinished()
     }
     else
     {
-        if(isHttpRedirected())
+        if(isHttpRedirected()) // check redirection
         {
             char cmd[] = "notify-send 'BAT-DownloadManager' 'request redirected' '-t' 5000";
             qDebug()<<"Request was redirected (failed)";
@@ -449,7 +467,7 @@ void SDM_network::downloadFinished()
         }
         else
         {
-            if(saveToDisk())
+            if(saveToDisk()) // save data to a file
             {
                 char cmd[] = "notify-send 'BAT-DownloadManager' 'download completed' '-t' 5000";
                 qDebug()<<"Download completed";
