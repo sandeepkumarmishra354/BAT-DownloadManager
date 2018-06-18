@@ -42,7 +42,7 @@ Help::Help(QWidget *parent) : QDialog(parent)
     vLayout.addWidget(&cancelButton);
     setLayout(&vLayout);
 
-    setStyleSheet("background-color: #333333");
+    setStyleSheet("background-color: #263238");
     setWindowTitle("about/help");
     setModal(true);
 }

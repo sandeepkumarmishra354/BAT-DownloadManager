@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QByteArray>
+#include <QVariant>
 #include "sdm_network.h"
 
 SDM_network::SDM_network(QObject *parent) : QObject(parent)
@@ -76,6 +77,7 @@ void SDM_network::beginNewDownload(QNetworkRequest &request)
     if(networkAvailable)
     {
         currentReply = manager.get(request);
+        currentReply->ignoreSslErrors();
         connect(currentReply, &QNetworkReply::downloadProgress, this, &SDM_network::progress);
         connect(currentReply, &QNetworkReply::finished, this, &SDM_network::downloadFinished);
         connect(currentReply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error),
@@ -180,10 +182,7 @@ void SDM_network::cancel()
         }
     }
 
-    if(sFile.isOpen())
-        sFile.close();
-    sFile.setFileName(downloadingFileName+".inf");
-    sFile.remove();
+    removeInfoFile();
 }
 
 void SDM_network::remove()
@@ -192,8 +191,7 @@ void SDM_network::remove()
     _atStartup = false;
     fromRemove = true;
     cancel();
-    sFile.setFileName(downloadPath+downloadingFileName+".inf");
-    sFile.remove();
+    removeInfoFile();
     emit quitThread();
     emit removeSDM();
 }
@@ -253,8 +251,18 @@ bool SDM_network::isHttpRedirected()
 {
     qDebug()<<"checking redirection...";
     int statusCode = currentReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    return statusCode == 301 || statusCode == 302 || statusCode == 303
-           || statusCode == 305 || statusCode == 307 || statusCode == 308;
+    bool redirected = (statusCode == 301 || statusCode == 302 || statusCode == 303
+                       || statusCode == 305 || statusCode == 307 || statusCode == 308);
+
+    if(redirected)
+        qDebug()<<"link Redirected";
+    else
+        qDebug()<<"link not Redirected";
+
+    //QVariant rurl = currentReply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+    //qDebug()<<rurl.toString();
+
+    return redirected;
 }
 
 void SDM_network::progress(qint64 rcv_bytes, qint64 total_bytes)
@@ -407,6 +415,14 @@ void SDM_network::saveInfoToDisk()
     }
 }
 
+void SDM_network::removeInfoFile()
+{
+    if(sFile.isOpen())
+        sFile.close();
+    sFile.setFileName(downloadingFileName+".inf");
+    sFile.remove();
+}
+
 void SDM_network::downloadFinished()
 {
     if(currentReply->error())
@@ -415,6 +431,7 @@ void SDM_network::downloadFinished()
         qDebug()<<"Network error (failed)";
         emit updateDownloadStyle("color: red");
         emit updateSpeed("Failed");
+        thereIsError = true;
         system(cmd);
         failSound->play();
     }
@@ -426,6 +443,7 @@ void SDM_network::downloadFinished()
             qDebug()<<"Request was redirected (failed)";
             emit updateDownloadStyle("color: red");
             emit updateSpeed("Failed");
+            thereIsError = true;
             system(cmd);
             failSound->play();
         }
@@ -440,6 +458,7 @@ void SDM_network::downloadFinished()
                 emit updateDownloadStyle("color: pink");
                 emit updateSpeed("Completed");
                 successSound->play();
+                thereIsError = false;
                 completed = true;
             }
         }
@@ -464,11 +483,13 @@ bool SDM_network::saveToDisk()
 
 SDM_network::~SDM_network()
 {
-    saveInfoToDisk();
+    if(!thereIsError)
+        saveInfoToDisk();
     if(mFile.isOpen())
         mFile.close();
     if(sFile.isOpen())
         sFile.close();
     --totalObj;
     emit quitThread();
+    qDebug()<<"SDM_Network destructor";
 }

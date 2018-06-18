@@ -9,6 +9,7 @@
 
 SDM::SDM(QWidget *parent) : QMainWindow(parent)
 {
+    qDebug()<<"SDM constructor";
     setWindowTitle(tr("BAT-DownloadManager"));
     setWindowIcon(QIcon(":/resources/app-icon.png"));
     setMinimumHeight(600);
@@ -25,7 +26,7 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
     VLAYOUT->addWidget(&scrollArea);
     scrollArea.setWidgetResizable(true);
     MAIN_WIDGET.setLayout(VLAYOUT);
-    MAIN_WIDGET.setStyleSheet("background-color: #333333");
+    MAIN_WIDGET.setStyleSheet("background-color: #263238");
 
     appIcon.load(":/resources/app-icon.png");
     appIconLabel.setPixmap(appIcon);
@@ -37,19 +38,16 @@ SDM::SDM(QWidget *parent) : QMainWindow(parent)
 
     appIconWidget = new QWidget;
     appIconWidget->setLayout(&appIconLayout);
-    appIconWidget->setStyleSheet("background-color: #333333");
+    appIconWidget->setStyleSheet("background-color: #263238");
 
     if(noTasks)
         setCentralWidget(appIconWidget);
     else
         setCentralWidget(&MAIN_WIDGET);
 
-    clipboard = QApplication::clipboard();
-    oldClipboardText = clipboard->text();
-
-    timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &SDM::checkClipboard);
-    timer->start(500);
+    clipboardManager = new ClipBoardManager(this);
+    connect(clipboardManager, &ClipBoardManager::newLinkCopied,
+           [this](QString link){dwnldurl=link; addNewTask();});
 
     loadTasks();
 }
@@ -65,6 +63,7 @@ void SDM::createAction()
     quitDM->setShortcut(tr("CTRL+Q"));
     connect(quitDM, &QAction::triggered, [this](){isForceQuit = true; close();});
     helpAction = new QAction(tr("help"), this);
+    helpAction->setShortcut(tr("ALT+H"));
     helpAction->setIcon(QIcon(":/resources/help.png"));
     connect(helpAction, &QAction::triggered, _help, &Help::show);
     settingAction = new QAction(tr("settings"), this);
@@ -73,6 +72,7 @@ void SDM::createAction()
     tool_bar = addToolBar(tr("tool bar"));
     spacerWidget = new QWidget;
     spacerWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    tool_bar->setStyleSheet("background-color: #263238");
     tool_bar->addAction(addTask);
     tool_bar->addAction(quitDM);
     tool_bar->addWidget(spacerWidget);
@@ -186,6 +186,7 @@ void SDM::closeEvent(QCloseEvent *e)
                 case QMessageBox::Yes:
                     qDebug()<<"Yes close";
                     freeMem();
+                    clipboardManager->exitThread();
                     e->accept();
                     break;
                 case QMessageBox::No:
@@ -197,6 +198,7 @@ void SDM::closeEvent(QCloseEvent *e)
         else
         {
             qDebug()<<"Exiting...";
+            clipboardManager->exitThread();
             freeMem();
             e->accept();
         }
@@ -245,6 +247,7 @@ void SDM::createDownloadWidgets(QString urlText)
     }
 
     QWidget *dwnldWidget = new QWidget;
+    dwnldWidget->setCursor(QCursor(Qt::PointingHandCursor));
     QVBoxLayout *dwnldvLayout = new QVBoxLayout(dwnldWidget);
     QLabel *dwnldLabel = new QLabel(dwnldWidget);
     dwnldLabel->setText(tr("Downloading file"));
@@ -349,28 +352,6 @@ void SDM::removeSDM()
         qDebug()<<"Widget remove Error";
 }
 
-void SDM::checkClipboard()
-{
-    dwnldurl = clipboard->text();
-    if(!dwnldurl.isEmpty() && oldClipboardText != dwnldurl)
-    {
-        if(dwnldurl.contains("www",Qt::CaseInsensitive)||dwnldurl.contains("http",Qt::CaseInsensitive)||
-           dwnldurl.contains(".com",Qt::CaseInsensitive)||dwnldurl.contains(".in",Qt::CaseInsensitive)||
-           dwnldurl.contains(".us",Qt::CaseInsensitive)||dwnldurl.contains(".uk",Qt::CaseInsensitive))
-        {
-            if(isHidden())
-                show();
-            else
-                raise();
-
-            qDebug()<<"new link copied into clipboard";
-            qDebug()<<"link: "<<dwnldurl;
-            addNewTask();
-            oldClipboardText = dwnldurl;
-        }
-    }
-}
-
 void SDM::forceQuit()
 {
     isForceQuit = true;
@@ -384,9 +365,9 @@ void SDM::freeMem()
     delete addTask;
     delete mainVlayout;
     delete VLAYOUT;
-    delete timer;
     delete settingAction;
     delete helpAction;
+    delete clipboardManager;
     delete _help;
     delete _setting;
 
@@ -397,7 +378,7 @@ void SDM::freeMem()
     if(_tInfo != nullptr)
         delete _tInfo;
 
-    qDebug()<<"free mem";
+    qDebug()<<"SDM destructor";
 }
 
 SDM::~SDM()

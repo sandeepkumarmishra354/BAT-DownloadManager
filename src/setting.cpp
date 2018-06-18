@@ -13,7 +13,7 @@ Setting::Setting(QWidget *parent) : QDialog(parent)
     hLayout.addWidget(&saveBtn);
     hLayout.addWidget(&cancelBtn);
     setLayout(&hLayout);
-    setStyleSheet("background-color: #333333");
+    setStyleSheet("background-color: #263238");
     setWindowTitle("settings");
     setModal(true);
 }

@@ -82,6 +82,7 @@ private slots:
     void progress(qint64 rcv_bytes, qint64 total_bytes);
     void networkStateChanged();
     void saveInfoToDisk();
+    void removeInfoFile();
     void errorOccur(QNetworkReply::NetworkError code);
 
 public slots:

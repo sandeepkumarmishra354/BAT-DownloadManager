@@ -26,6 +26,7 @@
 #include "sdm_network.h"
 #include "help.h"
 #include "setting.h"
+#include "clipboardmanager.h"
 
 class SDM : public QMainWindow
 {
@@ -34,14 +35,12 @@ class SDM : public QMainWindow
 public:
     SDM(QWidget *parent=0);
     ~SDM();
+    QString dwnldurl = "";
 
 private:
     QWidget mainWidget, MAIN_WIDGET;
     QScrollArea scrollArea;
-    QString dwnldurl = "";
     QString oldClipboardText = "";
-    QClipboard *clipboard;
-    QTimer *timer;
     QLabel appIconLabel, appNameLabel;
     QPixmap appIcon;
     QVBoxLayout appIconLayout;
@@ -54,6 +53,7 @@ private:
 
     Help *_help = new Help(this);
     Setting *_setting = new Setting(this);
+    ClipBoardManager *clipboardManager;
 
     QList <QWidget*> widgetList;
     QList <SDM_network*> sdmList;
@@ -94,7 +94,6 @@ private:
 private slots:
     void addNewTask();
     void resizeWidgets();
-    void checkClipboard();
     void forceQuit();
     void freeMem();
     void removeSDM();
