@@ -27,12 +27,16 @@ SOURCES += \
         main.cpp \
     src/sdm.cpp \
     src/sdm_network.cpp \
-    src/help.cpp
+    src/help.cpp \
+    src/setting.cpp \
+    src/clipboardmanager.cpp
 
 HEADERS += \
     src/sdm.h \
     src/sdm_network.h \
-    src/help.h
+    src/help.h \
+    src/setting.h \
+    src/clipboardmanager.h
 
 RESOURCES += \
     resource.qrc
